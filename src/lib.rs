@@ -1,5 +1,5 @@
 mod convert;
-mod local_storage;
+mod web_storage;
 mod memory_storage;
 mod utils;
 
@@ -7,8 +7,8 @@ use wasm_bindgen::prelude::*;
 
 use convert::convert;
 
-pub use local_storage::LocalStorage;
 pub use memory_storage::MemoryStorage;
+pub use web_storage::{LocalStorage, SessionStorage};
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
