@@ -16,7 +16,12 @@ async function run() {
     "SELECT * FROM Something;",
   ];
 
-  const db = new Glue();
+  const db = new Glue("memory");
+  /* other options:
+   *
+   * const db = new Glue("localstorage", "database-name");
+   * const db = new Glue("sessionstorage", "database-name");
+   */
 
   const stringify = v => JSON.stringify(v, null, ' ');
 
