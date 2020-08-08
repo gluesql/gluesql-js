@@ -1,7 +1,7 @@
 use serde_json::value::Value as Json;
 use wasm_bindgen::prelude::JsValue;
 
-use gluesql_memory_storage::gluesql::{Payload, Row, Value};
+use gluesql_core::{Payload, Row, Value};
 
 pub fn convert(payloads: Vec<Payload>) -> JsValue {
     let payloads = Json::Array(payloads.into_iter().map(convert_payload).collect());

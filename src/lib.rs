@@ -1,11 +1,12 @@
 mod convert;
+mod memory_storage;
 mod utils;
 
 use wasm_bindgen::prelude::*;
 
-use gluesql_memory_storage::{gluesql, MemoryStorage};
-
 use convert::convert;
+
+pub use memory_storage::MemoryStorage;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -17,7 +18,6 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
-
 }
 
 #[wasm_bindgen]
@@ -42,14 +42,14 @@ impl Glue {
     pub fn execute(&mut self, sql: String) -> Result<JsValue, JsValue> {
         let mut payloads = vec![];
 
-        let queries = gluesql::parse(&sql).map_err(|error| {
+        let queries = gluesql_core::parse(&sql).map_err(|error| {
             let message = format!("{:?}", error);
 
             JsValue::from_serde(&message).unwrap()
         })?;
 
         for query in queries.iter() {
-            match gluesql::execute(self.storage.take().unwrap(), query) {
+            match gluesql_core::execute(self.storage.take().unwrap(), query) {
                 Ok((storage, payload)) => {
                     self.storage = Some(storage);
 
