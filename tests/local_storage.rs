@@ -1,15 +1,19 @@
-use gluesql::MemoryStorage;
+use gluesql::LocalStorage;
 use gluesql_core::tests::*;
 use gluesql_core::{execute, generate_tests, Payload, Query, Result};
 
-struct MemoryTester {
-    storage: Option<MemoryStorage>,
+use wasm_bindgen_test::*;
+
+wasm_bindgen_test_configure!(run_in_browser);
+
+struct LocalTester {
+    storage: Option<LocalStorage>,
 }
 
-impl Tester for MemoryTester {
+impl Tester for LocalTester {
     fn new(namespace: &str) -> Self {
-        let storage = MemoryStorage::new().unwrap_or_else(|_| {
-            panic!("MemoryStorage::new {}", namespace);
+        let storage = LocalStorage::new(namespace.to_string()).unwrap_or_else(|_| {
+            panic!("LocalStorage::new {}", namespace);
         });
         let storage = Some(storage);
 
@@ -34,4 +38,4 @@ impl Tester for MemoryTester {
     }
 }
 
-generate_tests!(MemoryTester);
+generate_tests!(wasm_bindgen_test, LocalTester);
