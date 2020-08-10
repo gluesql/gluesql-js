@@ -45,7 +45,7 @@ impl Glue {
             Some(namespace) => {
                 log(&format!("[GlueSQL] namespace: {}", namespace));
 
-                Ok(namespace.to_string())
+                Ok(namespace)
             }
             None => Err(JsValue::from_str(
                 "please put the namespace as a second parameter",
