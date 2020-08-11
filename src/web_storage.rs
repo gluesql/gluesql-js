@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use gluesql_core::{Error, MutResult, MutStore, Result, Row, RowIter, Schema, Store, StoreError};
+use gluesql_core::{Error, MutResult, StoreMut, Result, Row, RowIter, Schema, Store, StoreError};
 
 use wasm_bindgen::prelude::*;
 
@@ -65,7 +65,7 @@ macro_rules! generate_storage_code {
             }
         }
 
-        impl MutStore<$StorageKey> for $Storage {
+        impl StoreMut<$StorageKey> for $Storage {
             fn generate_id(self, table_name: &str) -> MutResult<Self, $StorageKey> {
                 let prefix = self.get_id_prefix(table_name);
                 let table_name = table_name.to_string();

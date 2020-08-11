@@ -1,6 +1,6 @@
 use im_rc::{vector, HashMap, Vector};
 
-use gluesql_core::{MutResult, MutStore, Result, Row, RowIter, Schema, Store, StoreError};
+use gluesql_core::{MutResult, StoreMut, Result, Row, RowIter, Schema, Store, StoreError};
 
 pub struct MemoryStorage {
     schema_map: HashMap<String, Schema>,
@@ -27,7 +27,7 @@ impl MemoryStorage {
     }
 }
 
-impl MutStore<DataKey> for MemoryStorage {
+impl StoreMut<DataKey> for MemoryStorage {
     fn generate_id(self, table_name: &str) -> MutResult<Self, DataKey> {
         let id = self.id + 1;
         let storage = Self {
