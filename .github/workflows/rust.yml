@@ -24,7 +24,7 @@ jobs:
       run: cargo clippy -- -D warnings
 
     - name: Build
-      run: wasm-pack build
+      run: wasm-pack build --target bundler
 
     - name: Run tests
       run: wasm-pack test --headless --chrome
