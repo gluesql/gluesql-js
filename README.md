@@ -43,3 +43,6 @@ async function main() {
   */
 }
 ```
+
+## Other Examples
+* [GlueSQL JavaScript Seed](https://github.com/gluesql/gluesql-js-seed)
