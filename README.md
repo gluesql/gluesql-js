@@ -1,3 +1,5 @@
+[![npm version](https://badge.fury.io/js/gluesql.svg)](https://badge.fury.io/js/gluesql)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 # GlueSQL-js
 Use SQL in web browsers!
 
