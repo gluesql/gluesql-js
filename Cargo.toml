@@ -4,7 +4,7 @@ version = "0.1.4"
 authors = ["Taehoon Moon <panarch@kaist.ac.kr>"]
 edition = "2018"
 description = "GlueSQL JavaScript Interface"
-license = "MPL-2.0"
+license = "MIT"
 repository = "https://github.com/gluesql/gluesql-js"
 
 [lib]
