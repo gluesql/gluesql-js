@@ -38,7 +38,7 @@ async function run() {
 
       message = {
         color: '#3090F2',
-        content: `[RES] ${stringify(result)}`,
+        content: `[${result.query}] ${stringify(result.data)}`,
       };
     } catch (error) {
       message = {

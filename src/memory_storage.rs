@@ -1,6 +1,6 @@
 use im_rc::{vector, HashMap, Vector};
 
-use gluesql_core::{MutResult, StoreMut, Result, Row, RowIter, Schema, Store, StoreError};
+use gluesql_core::{MutResult, Result, Row, RowIter, Schema, Store, StoreError, StoreMut};
 
 pub struct MemoryStorage {
     schema_map: HashMap<String, Schema>,

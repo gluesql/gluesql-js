@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use gluesql_core::{Error, MutResult, StoreMut, Result, Row, RowIter, Schema, Store, StoreError};
+use gluesql_core::{Error, MutResult, Result, Row, RowIter, Schema, Store, StoreError, StoreMut};
 
 use wasm_bindgen::prelude::*;
 
