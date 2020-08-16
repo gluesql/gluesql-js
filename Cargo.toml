@@ -1,10 +1,10 @@
 [package]
 name = "gluesql"
-version = "0.1.7"
+version = "0.1.8"
 authors = ["Taehoon Moon <panarch@kaist.ac.kr>"]
 edition = "2018"
 description = "GlueSQL JavaScript Interface"
-license = "MIT"
+license = "Apache-2.0"
 repository = "https://github.com/gluesql/gluesql-js"
 
 [lib]
