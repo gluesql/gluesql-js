@@ -50,7 +50,7 @@ async function main() {
 
 ## :books: Features
 
-### Supported Queries
+### :green_book: Supported Queries
 * `CREATE TABLE`
 * `INSERT`
 * `UPDATE`
@@ -58,7 +58,7 @@ async function main() {
 * `DELETE`
 * `DROP TABLE`
 
-### Supported Data Types & Attributes
+### :blue_book: Supported Data Types & Attributes
 #### Types
 * `INTEGER`
 * `FLOAT`
@@ -77,7 +77,7 @@ CREATE TABLE User (
 );
 ```
 
-### Supported SQL Syntax Keywords
+### :orange_book: Supported SQL Syntax Keywords
 #### Join (only with `ON` keyword)
 * `INNER JOIN` | `JOIN`
 * `LEFT JOIN` | `LEFT OUTER JOIN`
