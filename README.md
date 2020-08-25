@@ -1,8 +1,9 @@
 # GlueSQL-js
 [![npm version](https://badge.fury.io/js/gluesql.svg)](https://badge.fury.io/js/gluesql)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 > Use SQL in web browsers!
+* [Demo](https://gluesql.org/demo/)
 
 GlueSQL-js provides 3 storage options
 * In-memory
