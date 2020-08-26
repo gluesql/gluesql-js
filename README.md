@@ -48,6 +48,7 @@ async function main() {
 
 ## :sparkles: Examples
 * [GlueSQL JavaScript Seed](https://github.com/gluesql/gluesql-js-seed)
+* [GlueSQL Web Dashboard Demo](https://github.com/gluesql/gluesql-js-demo)
 
 ## :books: Features
 
