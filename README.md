@@ -103,6 +103,7 @@ WHERE User.id IN (SELECT id IN Other);
 * `MAX`
 * `MIN`
 * `SUM`
+* `GROUP BY`, `HAVING`
 
 > Example
 ```sql
@@ -110,6 +111,7 @@ SELECT
   COUNT(*),
   MAX(amount) + MIN(amount),
   SUM(amount)
-FROM
-  TableA;
+FROM TableA
+GROUP BY city
+HAVING COUNT(*) > 10;
 ```
