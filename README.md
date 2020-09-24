@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 > Use SQL in web browsers!
-* [Demo](https://gluesql.org/demo/)
+* [Demo - https://gluesql.org/playground](https://gluesql.org/playground/)
 
 GlueSQL-js provides 3 storage options
 * In-memory
@@ -48,6 +48,7 @@ async function main() {
 
 ## :sparkles: Examples
 * [GlueSQL JavaScript Seed](https://github.com/gluesql/gluesql-js-seed)
+* [GlueSQL Web Dashboard Demo](https://github.com/gluesql/gluesql-js-demo)
 
 ## :books: Features
 
