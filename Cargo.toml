@@ -31,7 +31,7 @@ console_error_panic_hook = { version = "0.1.6", optional = true }
 wee_alloc = { version = "0.4.5", optional = true }
 serde = { version = "1.0.104", features = ["derive"] }
 serde_json = "1.0.57"
-gluesql_core = { version = "0.1.13", package = "gluesql" }
+gluesql_core = { version = "0.1.16", package = "gluesql" }
 im-rc = "15.0.0"
 
 [dev-dependencies]

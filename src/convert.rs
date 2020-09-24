@@ -25,7 +25,7 @@ pub fn convert(payloads: Vec<Payload>) -> JsValue {
 fn convert_payload(payload: Payload) -> (String, Json) {
     match payload {
         Payload::Create => ("CREATE".to_owned(), Json::Null),
-        Payload::Insert(row) => ("INSERT".to_owned(), convert_row(row)),
+        Payload::Insert(num) => ("INSERT".to_owned(), Json::from(num)),
         Payload::Select(rows) => (
             "SELECT".to_owned(),
             Json::Array(rows.into_iter().map(convert_row).collect()),
