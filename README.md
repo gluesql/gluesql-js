@@ -54,6 +54,7 @@ async function main() {
 
 ### :green_book: Supported Queries
 * `CREATE TABLE`
+* `ALTER TABLE`
 * `INSERT`
 * `UPDATE`
 * `SELECT`
