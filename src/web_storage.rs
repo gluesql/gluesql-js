@@ -12,9 +12,6 @@ macro_rules! try_into {
     ($expr: expr) => {
         $expr.map_err(|e| Error::Storage(Box::new(e)))?
     };
-}
-
-macro_rules! try_self {
     ($self: expr, $expr: expr) => {
         match $expr {
             Err(e) => {
@@ -27,7 +24,7 @@ macro_rules! try_self {
     };
 }
 
-macro_rules! try3 {
+macro_rules! try_self {
     ($self: expr, $expr: expr) => {
         match $expr {
             Err(e) => {
@@ -87,7 +84,7 @@ macro_rules! generate_storage_code {
 
                 let key = match $get_item(&prefix).as_string() {
                     Some(v) => {
-                        let $StorageKey { id, .. } = try_self!(self, serde_json::from_str(&v));
+                        let $StorageKey { id, .. } = try_into!(self, serde_json::from_str(&v));
 
                         $StorageKey {
                             table_name,
@@ -97,7 +94,7 @@ macro_rules! generate_storage_code {
                     None => $StorageKey { table_name, id: 1 },
                 };
 
-                let serialized = try_self!(self, serde_json::to_string(&key));
+                let serialized = try_into!(self, serde_json::to_string(&key));
                 $set_item(&prefix, &serialized);
 
                 Ok((self, key))
@@ -105,7 +102,7 @@ macro_rules! generate_storage_code {
 
             fn insert_schema(self, schema: &Schema) -> MutResult<Self, ()> {
                 let prefix = self.get_schema_prefix(&schema.table_name);
-                let schema = try_self!(self, serde_json::to_string(&schema));
+                let schema = try_into!(self, serde_json::to_string(&schema));
 
                 $set_item(&prefix, &schema);
 
@@ -128,7 +125,7 @@ macro_rules! generate_storage_code {
 
                 let mut items = match $get_item(&prefix).as_string() {
                     Some(v) => {
-                        let items: Vec<(u64, Row)> = try_self!(self, serde_json::from_str(&v));
+                        let items: Vec<(u64, Row)> = try_into!(self, serde_json::from_str(&v));
 
                         items
                     }
@@ -148,7 +145,7 @@ macro_rules! generate_storage_code {
                     }
                 };
 
-                let items = try_self!(self, serde_json::to_string(&items));
+                let items = try_into!(self, serde_json::to_string(&items));
                 $set_item(&prefix, &items);
 
                 Ok((self, ()))
@@ -159,7 +156,7 @@ macro_rules! generate_storage_code {
 
                 let mut items = match $get_item(&prefix).as_string() {
                     Some(v) => {
-                        let items: Vec<(u64, Row)> = try_self!(self, serde_json::from_str(&v));
+                        let items: Vec<(u64, Row)> = try_into!(self, serde_json::from_str(&v));
 
                         items
                     }
@@ -170,7 +167,7 @@ macro_rules! generate_storage_code {
                     items.remove(index);
                 }
 
-                let items = try_self!(self, serde_json::to_string(&items));
+                let items = try_into!(self, serde_json::to_string(&items));
                 $set_item(&prefix, &items);
 
                 Ok((self, ()))
@@ -222,18 +219,18 @@ macro_rules! generate_storage_code {
                 // update schema
                 let schema_prefix = self.get_schema_prefix(table_name);
 
-                let schema = try_self!(
+                let schema = try_into!(
                     self,
                     $get_item(&schema_prefix)
                         .as_string()
                         .ok_or(StoreError::SchemaNotFound)
                 );
-                let mut schema: Schema = try_self!(self, serde_json::from_str(&schema));
+                let mut schema: Schema = try_into!(self, serde_json::from_str(&schema));
 
                 schema.table_name = new_table_name.to_string();
 
                 let new_schema_prefix = self.get_schema_prefix(new_table_name);
-                let schema = try_self!(self, serde_json::to_string(&schema));
+                let schema = try_into!(self, serde_json::to_string(&schema));
                 $set_item(&new_schema_prefix, &schema);
                 $remove_item(&schema_prefix);
 
@@ -255,24 +252,24 @@ macro_rules! generate_storage_code {
                 new_column_name: &str,
             ) -> MutResult<Self, ()> {
                 let prefix = self.get_schema_prefix(table_name);
-                let schema = try_self!(
+                let schema = try_into!(
                     self,
                     $get_item(&prefix)
                         .as_string()
                         .ok_or(StoreError::SchemaNotFound)
                 );
-                let mut schema: Schema = try_self!(self, serde_json::from_str(&schema));
+                let mut schema: Schema = try_into!(self, serde_json::from_str(&schema));
 
                 let i = schema
                     .column_defs
                     .iter()
                     .position(|column_def| column_def.name.value == old_column_name)
                     .ok_or(AlterTableError::RenamingColumnNotFound);
-                let i = try3!(self, i);
+                let i = try_self!(self, i);
 
                 schema.column_defs[i].name.value = new_column_name.to_string();
 
-                let schema = try_self!(self, serde_json::to_string(&schema));
+                let schema = try_into!(self, serde_json::to_string(&schema));
                 $set_item(&prefix, &schema);
 
                 Ok((self, ()))
@@ -280,13 +277,13 @@ macro_rules! generate_storage_code {
 
             fn add_column(self, table_name: &str, column_def: &ColumnDef) -> MutResult<Self, ()> {
                 let schema_prefix = self.get_schema_prefix(table_name);
-                let schema = try_self!(
+                let schema = try_into!(
                     self,
                     $get_item(&schema_prefix)
                         .as_string()
                         .ok_or(StoreError::SchemaNotFound)
                 );
-                let mut schema: Schema = try_self!(self, serde_json::from_str(&schema));
+                let mut schema: Schema = try_into!(self, serde_json::from_str(&schema));
 
                 if schema
                     .column_defs
@@ -320,8 +317,8 @@ macro_rules! generate_storage_code {
                     .next();
 
                 let value = match (default, nullable) {
-                    (Some(value), _) => try3!(self, value),
-                    (None, true) => try3!(
+                    (Some(value), _) => try_self!(self, value),
+                    (None, true) => try_self!(
                         self,
                         Value::from_data_type(&data_type, nullable, &AstValue::Null)
                     ),
@@ -333,13 +330,13 @@ macro_rules! generate_storage_code {
                     }
                 };
 
-                let schema = try_self!(self, serde_json::to_string(&schema));
+                let schema = try_into!(self, serde_json::to_string(&schema));
                 $set_item(&schema_prefix, &schema);
 
                 let data_prefix = self.get_data_prefix(table_name);
                 let items = match $get_item(&data_prefix).as_string() {
                     Some(v) => {
-                        let items: Vec<(u64, Row)> = try_self!(self, serde_json::from_str(&v));
+                        let items: Vec<(u64, Row)> = try_into!(self, serde_json::from_str(&v));
 
                         items
                     }
@@ -355,7 +352,7 @@ macro_rules! generate_storage_code {
                     })
                     .collect();
 
-                let items = try_self!(self, serde_json::to_string(&items));
+                let items = try_into!(self, serde_json::to_string(&items));
                 $set_item(&data_prefix, &items);
 
                 Ok((self, ()))
@@ -368,13 +365,13 @@ macro_rules! generate_storage_code {
                 if_exists: bool,
             ) -> MutResult<Self, ()> {
                 let schema_prefix = self.get_schema_prefix(table_name);
-                let schema = try_self!(
+                let schema = try_into!(
                     self,
                     $get_item(&schema_prefix)
                         .as_string()
                         .ok_or(StoreError::SchemaNotFound)
                 );
-                let mut schema: Schema = try_self!(self, serde_json::from_str(&schema));
+                let mut schema: Schema = try_into!(self, serde_json::from_str(&schema));
 
                 let index = schema
                     .column_defs
@@ -395,13 +392,13 @@ macro_rules! generate_storage_code {
                 };
 
                 schema.column_defs.remove(index);
-                let schema = try_self!(self, serde_json::to_string(&schema));
+                let schema = try_into!(self, serde_json::to_string(&schema));
                 $set_item(&schema_prefix, &schema);
 
                 let data_prefix = self.get_data_prefix(table_name);
                 let items = match $get_item(&data_prefix).as_string() {
                     Some(v) => {
-                        let items: Vec<(u64, Row)> = try_self!(self, serde_json::from_str(&v));
+                        let items: Vec<(u64, Row)> = try_into!(self, serde_json::from_str(&v));
 
                         items
                     }
@@ -417,7 +414,7 @@ macro_rules! generate_storage_code {
                     })
                     .collect();
 
-                let items = try_self!(self, serde_json::to_string(&items));
+                let items = try_into!(self, serde_json::to_string(&items));
                 $set_item(&data_prefix, &items);
 
                 Ok((self, ()))
