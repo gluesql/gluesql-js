@@ -1,6 +1,6 @@
 use gluesql::MemoryStorage;
 use gluesql_core::tests::*;
-use gluesql_core::{execute, generate_tests, Payload, Query, Result};
+use gluesql_core::*;
 
 use wasm_bindgen_test::*;
 

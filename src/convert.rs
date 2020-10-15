@@ -33,6 +33,7 @@ fn convert_payload(payload: Payload) -> (String, Json) {
         Payload::Delete(num) => ("DELETE".to_owned(), Json::from(num)),
         Payload::Update(num) => ("UPDATE".to_owned(), Json::from(num)),
         Payload::DropTable => ("DROP".to_owned(), Json::Null),
+        Payload::AlterTable => ("ALTER TABLE".to_owned(), Json::Null),
     }
 }
 
