@@ -35,7 +35,7 @@ im-rc = "15.0.0"
 boolinator = "2.4.0"
 
 [dependencies.gluesql_core]
-version = "0.2.2"
+version = "0.2.3"
 package = "gluesql"
 default-features = false
 features = ["alter-table"]

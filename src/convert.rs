@@ -26,7 +26,7 @@ fn convert_payload(payload: Payload) -> (String, Json) {
     match payload {
         Payload::Create => ("CREATE".to_owned(), Json::Null),
         Payload::Insert(num) => ("INSERT".to_owned(), Json::from(num)),
-        Payload::Select(rows) => (
+        Payload::Select { rows, .. } => (
             "SELECT".to_owned(),
             Json::Array(rows.into_iter().map(convert_row).collect()),
         ),
