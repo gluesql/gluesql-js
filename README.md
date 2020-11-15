@@ -36,7 +36,7 @@ async function main() {
   
   db.execute(sql);
 
-  const items = db.execute("SELECT * FROM Test WHERE id < 103;")[0];
+  const items = (await db.execute("SELECT * FROM Test WHERE id < 103;"))[0];
   /* items:
     [
       [101, "Glue"],
