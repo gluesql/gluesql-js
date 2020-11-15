@@ -34,7 +34,7 @@ async function run() {
     let message;
 
     try {
-      let result = db.execute(sql)[0];
+      let result = (await db.execute(sql))[0];
 
       message = {
         color: '#3090F2',

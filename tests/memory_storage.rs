@@ -1,4 +1,7 @@
-use gluesql::MemoryStorage;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use gluesql::memory_storage::{DataKey, MemoryStorage};
 use gluesql_core::tests::*;
 use gluesql_core::*;
 
@@ -7,34 +10,21 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 
 struct MemoryTester {
-    storage: Option<MemoryStorage>,
+    storage: Rc<RefCell<Option<MemoryStorage>>>,
 }
 
-impl Tester for MemoryTester {
+impl Tester<DataKey, MemoryStorage> for MemoryTester {
     fn new(namespace: &str) -> Self {
         let storage = MemoryStorage::new().unwrap_or_else(|_| {
             panic!("MemoryStorage::new {}", namespace);
         });
-        let storage = Some(storage);
+        let storage = Rc::new(RefCell::new(Some(storage)));
 
         Self { storage }
     }
 
-    fn execute(&mut self, query: &Query) -> Result<Payload> {
-        let storage = self.storage.take().unwrap();
-
-        match execute(storage, query) {
-            Ok((storage, payload)) => {
-                self.storage = Some(storage);
-
-                Ok(payload)
-            }
-            Err((storage, error)) => {
-                self.storage = Some(storage);
-
-                Err(error)
-            }
-        }
+    fn get_cell(&mut self) -> Rc<RefCell<Option<MemoryStorage>>> {
+        Rc::clone(&self.storage)
     }
 }
 

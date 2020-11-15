@@ -1,4 +1,7 @@
-use gluesql::LocalStorage;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use gluesql::web_storage::{LocalKey, LocalStorage};
 use gluesql_core::tests::*;
 use gluesql_core::*;
 
@@ -7,34 +10,21 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 
 struct LocalTester {
-    storage: Option<LocalStorage>,
+    storage: Rc<RefCell<Option<LocalStorage>>>,
 }
 
-impl Tester for LocalTester {
+impl Tester<LocalKey, LocalStorage> for LocalTester {
     fn new(namespace: &str) -> Self {
         let storage = LocalStorage::new(namespace.to_string()).unwrap_or_else(|_| {
             panic!("LocalStorage::new {}", namespace);
         });
-        let storage = Some(storage);
+        let storage = Rc::new(RefCell::new(Some(storage)));
 
         Self { storage }
     }
 
-    fn execute(&mut self, query: &Query) -> Result<Payload> {
-        let storage = self.storage.take().unwrap();
-
-        match execute(storage, query) {
-            Ok((storage, payload)) => {
-                self.storage = Some(storage);
-
-                Ok(payload)
-            }
-            Err((storage, error)) => {
-                self.storage = Some(storage);
-
-                Err(error)
-            }
-        }
+    fn get_cell(&mut self) -> Rc<RefCell<Option<LocalStorage>>> {
+        Rc::clone(&self.storage)
     }
 }
 

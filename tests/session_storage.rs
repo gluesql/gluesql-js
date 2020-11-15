@@ -1,4 +1,7 @@
-use gluesql::SessionStorage;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use gluesql::web_storage::{SessionKey, SessionStorage};
 use gluesql_core::tests::*;
 use gluesql_core::*;
 
@@ -7,34 +10,21 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 
 struct SessionTester {
-    storage: Option<SessionStorage>,
+    storage: Rc<RefCell<Option<SessionStorage>>>,
 }
 
-impl Tester for SessionTester {
+impl Tester<SessionKey, SessionStorage> for SessionTester {
     fn new(namespace: &str) -> Self {
         let storage = SessionStorage::new(namespace.to_string()).unwrap_or_else(|_| {
             panic!("SessionStorage::new {}", namespace);
         });
-        let storage = Some(storage);
+        let storage = Rc::new(RefCell::new(Some(storage)));
 
         Self { storage }
     }
 
-    fn execute(&mut self, query: &Query) -> Result<Payload> {
-        let storage = self.storage.take().unwrap();
-
-        match execute(storage, query) {
-            Ok((storage, payload)) => {
-                self.storage = Some(storage);
-
-                Ok(payload)
-            }
-            Err((storage, error)) => {
-                self.storage = Some(storage);
-
-                Err(error)
-            }
-        }
+    fn get_cell(&mut self) -> Rc<RefCell<Option<SessionStorage>>> {
+        Rc::clone(&self.storage)
     }
 }
 

@@ -1,9 +1,10 @@
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use gluesql_core::parser::ast::{ColumnDef, ColumnOption, ColumnOptionDef, Value as AstValue};
 use gluesql_core::{
-    AlterTable, AlterTableError, Error, MutResult, Result, Row, RowIter, Schema, Store, StoreError,
-    StoreMut, Value,
+    AlterTable, AlterTableError, Error, MutResult, Result, Row, RowIter, Schema, Store, StoreMut,
+    Value,
 };
 
 use wasm_bindgen::prelude::*;
@@ -77,8 +78,9 @@ macro_rules! generate_storage_code {
             }
         }
 
+        #[async_trait]
         impl StoreMut<$StorageKey> for $Storage {
-            fn generate_id(self, table_name: &str) -> MutResult<Self, $StorageKey> {
+            async fn generate_id(self, table_name: &str) -> MutResult<Self, $StorageKey> {
                 let prefix = self.get_id_prefix(table_name);
                 let table_name = table_name.to_string();
 
@@ -100,7 +102,7 @@ macro_rules! generate_storage_code {
                 Ok((self, key))
             }
 
-            fn insert_schema(self, schema: &Schema) -> MutResult<Self, ()> {
+            async fn insert_schema(self, schema: &Schema) -> MutResult<Self, ()> {
                 let prefix = self.get_schema_prefix(&schema.table_name);
                 let schema = try_into!(self, serde_json::to_string(&schema));
 
@@ -109,7 +111,7 @@ macro_rules! generate_storage_code {
                 Ok((self, ()))
             }
 
-            fn delete_schema(self, table_name: &str) -> MutResult<Self, ()> {
+            async fn delete_schema(self, table_name: &str) -> MutResult<Self, ()> {
                 let schema_prefix = self.get_schema_prefix(table_name);
                 let data_prefix = self.get_data_prefix(table_name);
 
@@ -119,7 +121,7 @@ macro_rules! generate_storage_code {
                 Ok((self, ()))
             }
 
-            fn insert_data(self, key: &$StorageKey, row: Row) -> MutResult<Self, ()> {
+            async fn insert_data(self, key: &$StorageKey, row: Row) -> MutResult<Self, ()> {
                 let prefix = self.get_data_prefix(&key.table_name);
                 let item = (key.id, row);
 
@@ -151,7 +153,7 @@ macro_rules! generate_storage_code {
                 Ok((self, ()))
             }
 
-            fn delete_data(self, key: &$StorageKey) -> MutResult<Self, ()> {
+            async fn delete_data(self, key: &$StorageKey) -> MutResult<Self, ()> {
                 let prefix = self.get_data_prefix(&key.table_name);
 
                 let mut items = match $get_item(&prefix).as_string() {
@@ -174,19 +176,27 @@ macro_rules! generate_storage_code {
             }
         }
 
+        #[async_trait]
         impl Store<$StorageKey> for $Storage {
-            fn fetch_schema(&self, table_name: &str) -> Result<Schema> {
+            async fn fetch_schema(&self, table_name: &str) -> Result<Option<Schema>> {
                 let prefix = self.get_schema_prefix(table_name);
 
+                /*
                 let schema = $get_item(&prefix)
                     .as_string()
-                    .ok_or(StoreError::SchemaNotFound)?;
+                    .ok_or(AlterTableError::TableNotFound(table_name.to_string()))?;
                 let schema = try_into!(serde_json::from_str(&schema));
+                */
+
+                let schema = match $get_item(&prefix).as_string() {
+                    Some(schema) => Some(try_into!(serde_json::from_str(&schema))),
+                    None => None,
+                };
 
                 Ok(schema)
             }
 
-            fn scan_data(&self, table_name: &str) -> Result<RowIter<$StorageKey>> {
+            async fn scan_data(&self, table_name: &str) -> Result<RowIter<$StorageKey>> {
                 let prefix = self.get_data_prefix(table_name);
 
                 let items = match $get_item(&prefix).as_string() {
@@ -214,16 +224,21 @@ macro_rules! generate_storage_code {
             }
         }
 
+        #[async_trait]
         impl AlterTable for $Storage {
-            fn rename_schema(self, table_name: &str, new_table_name: &str) -> MutResult<Self, ()> {
+            async fn rename_schema(
+                self,
+                table_name: &str,
+                new_table_name: &str,
+            ) -> MutResult<Self, ()> {
                 // update schema
                 let schema_prefix = self.get_schema_prefix(table_name);
 
-                let schema = try_into!(
+                let schema = try_self!(
                     self,
                     $get_item(&schema_prefix)
                         .as_string()
-                        .ok_or(StoreError::SchemaNotFound)
+                        .ok_or(AlterTableError::TableNotFound(table_name.to_string()))
                 );
                 let mut schema: Schema = try_into!(self, serde_json::from_str(&schema));
 
@@ -245,18 +260,18 @@ macro_rules! generate_storage_code {
                 Ok((self, ()))
             }
 
-            fn rename_column(
+            async fn rename_column(
                 self,
                 table_name: &str,
                 old_column_name: &str,
                 new_column_name: &str,
             ) -> MutResult<Self, ()> {
                 let prefix = self.get_schema_prefix(table_name);
-                let schema = try_into!(
+                let schema = try_self!(
                     self,
                     $get_item(&prefix)
                         .as_string()
-                        .ok_or(StoreError::SchemaNotFound)
+                        .ok_or(AlterTableError::TableNotFound(table_name.to_string()))
                 );
                 let mut schema: Schema = try_into!(self, serde_json::from_str(&schema));
 
@@ -275,13 +290,17 @@ macro_rules! generate_storage_code {
                 Ok((self, ()))
             }
 
-            fn add_column(self, table_name: &str, column_def: &ColumnDef) -> MutResult<Self, ()> {
+            async fn add_column(
+                self,
+                table_name: &str,
+                column_def: &ColumnDef,
+            ) -> MutResult<Self, ()> {
                 let schema_prefix = self.get_schema_prefix(table_name);
-                let schema = try_into!(
+                let schema = try_self!(
                     self,
                     $get_item(&schema_prefix)
                         .as_string()
-                        .ok_or(StoreError::SchemaNotFound)
+                        .ok_or(AlterTableError::TableNotFound(table_name.to_string()))
                 );
                 let mut schema: Schema = try_into!(self, serde_json::from_str(&schema));
 
@@ -358,18 +377,18 @@ macro_rules! generate_storage_code {
                 Ok((self, ()))
             }
 
-            fn drop_column(
+            async fn drop_column(
                 self,
                 table_name: &str,
                 column_name: &str,
                 if_exists: bool,
             ) -> MutResult<Self, ()> {
                 let schema_prefix = self.get_schema_prefix(table_name);
-                let schema = try_into!(
+                let schema = try_self!(
                     self,
                     $get_item(&schema_prefix)
                         .as_string()
-                        .ok_or(StoreError::SchemaNotFound)
+                        .ok_or(AlterTableError::TableNotFound(table_name.to_string()))
                 );
                 let mut schema: Schema = try_into!(self, serde_json::from_str(&schema));
 

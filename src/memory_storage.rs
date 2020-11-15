@@ -1,10 +1,10 @@
+use async_trait::async_trait;
 use boolinator::Boolinator;
-use im_rc::{vector, HashMap, Vector};
+use im::{vector, HashMap, Vector};
 
 use gluesql_core::parser::ast::{ColumnDef, ColumnOption, ColumnOptionDef, Value as AstValue};
 use gluesql_core::{
-    AlterTable, AlterTableError, MutResult, Result, Row, RowIter, Schema, Store, StoreError,
-    StoreMut, Value,
+    AlterTable, AlterTableError, MutResult, Result, Row, RowIter, Schema, Store, StoreMut, Value,
 };
 
 pub struct MemoryStorage {
@@ -32,8 +32,9 @@ impl MemoryStorage {
     }
 }
 
+#[async_trait]
 impl StoreMut<DataKey> for MemoryStorage {
-    fn generate_id(self, table_name: &str) -> MutResult<Self, DataKey> {
+    async fn generate_id(self, table_name: &str) -> MutResult<Self, DataKey> {
         let id = self.id + 1;
         let storage = Self {
             schema_map: self.schema_map,
@@ -49,7 +50,7 @@ impl StoreMut<DataKey> for MemoryStorage {
         Ok((storage, key))
     }
 
-    fn insert_schema(self, schema: &Schema) -> MutResult<Self, ()> {
+    async fn insert_schema(self, schema: &Schema) -> MutResult<Self, ()> {
         let table_name = schema.table_name.to_string();
         let schema_map = self.schema_map.update(table_name, schema.clone());
         let storage = Self {
@@ -61,7 +62,7 @@ impl StoreMut<DataKey> for MemoryStorage {
         Ok((storage, ()))
     }
 
-    fn delete_schema(self, table_name: &str) -> MutResult<Self, ()> {
+    async fn delete_schema(self, table_name: &str) -> MutResult<Self, ()> {
         let Self {
             mut schema_map,
             mut data_map,
@@ -79,7 +80,7 @@ impl StoreMut<DataKey> for MemoryStorage {
         Ok((storage, ()))
     }
 
-    fn insert_data(self, key: &DataKey, row: Row) -> MutResult<Self, ()> {
+    async fn insert_data(self, key: &DataKey, row: Row) -> MutResult<Self, ()> {
         let DataKey { table_name, id } = key;
         let table_name = table_name.to_string();
         let item = (*id, row);
@@ -113,7 +114,7 @@ impl StoreMut<DataKey> for MemoryStorage {
         Ok((storage, ()))
     }
 
-    fn delete_data(self, key: &DataKey) -> MutResult<Self, ()> {
+    async fn delete_data(self, key: &DataKey) -> MutResult<Self, ()> {
         let DataKey { table_name, id } = key;
         let table_name = table_name.to_string();
         let Self {
@@ -142,18 +143,15 @@ impl StoreMut<DataKey> for MemoryStorage {
     }
 }
 
+#[async_trait]
 impl Store<DataKey> for MemoryStorage {
-    fn fetch_schema(&self, table_name: &str) -> Result<Schema> {
-        let schema = self
-            .schema_map
-            .get(table_name)
-            .ok_or(StoreError::SchemaNotFound)?
-            .clone();
+    async fn fetch_schema(&self, table_name: &str) -> Result<Option<Schema>> {
+        let schema = self.schema_map.get(table_name).cloned();
 
         Ok(schema)
     }
 
-    fn scan_data(&self, table_name: &str) -> Result<RowIter<DataKey>> {
+    async fn scan_data(&self, table_name: &str) -> Result<RowIter<DataKey>> {
         let items = match self.data_map.get(table_name) {
             Some(items) => items
                 .iter()
@@ -186,13 +184,14 @@ macro_rules! try_into {
     };
 }
 
+#[async_trait]
 impl AlterTable for MemoryStorage {
-    fn rename_schema(self, table_name: &str, new_table_name: &str) -> MutResult<Self, ()> {
+    async fn rename_schema(self, table_name: &str, new_table_name: &str) -> MutResult<Self, ()> {
         let mut schema = try_into!(
             self,
             self.schema_map
                 .get(table_name)
-                .ok_or(StoreError::SchemaNotFound)
+                .ok_or_else(|| AlterTableError::TableNotFound(table_name.to_string()))
                 .map(|s| s.clone())
         );
 
@@ -223,7 +222,7 @@ impl AlterTable for MemoryStorage {
         Ok((storage, ()))
     }
 
-    fn rename_column(
+    async fn rename_column(
         self,
         table_name: &str,
         old_column_name: &str,
@@ -233,7 +232,7 @@ impl AlterTable for MemoryStorage {
             self,
             self.schema_map
                 .get(table_name)
-                .ok_or(StoreError::SchemaNotFound)
+                .ok_or_else(|| AlterTableError::TableNotFound(table_name.to_string()))
                 .map(|s| s.clone())
         );
 
@@ -263,12 +262,12 @@ impl AlterTable for MemoryStorage {
         Ok((storage, ()))
     }
 
-    fn add_column(self, table_name: &str, column_def: &ColumnDef) -> MutResult<Self, ()> {
+    async fn add_column(self, table_name: &str, column_def: &ColumnDef) -> MutResult<Self, ()> {
         let mut schema = try_into!(
             self,
             self.schema_map
                 .get(table_name)
-                .ok_or(StoreError::SchemaNotFound)
+                .ok_or_else(|| AlterTableError::TableNotFound(table_name.to_string()))
                 .map(|s| s.clone())
         );
 
@@ -361,7 +360,7 @@ impl AlterTable for MemoryStorage {
         Ok((storage, ()))
     }
 
-    fn drop_column(
+    async fn drop_column(
         self,
         table_name: &str,
         column_name: &str,
@@ -371,7 +370,7 @@ impl AlterTable for MemoryStorage {
             self,
             self.schema_map
                 .get(table_name)
-                .ok_or(StoreError::SchemaNotFound)
+                .ok_or_else(|| AlterTableError::TableNotFound(table_name.to_string()))
                 .map(|s| s.clone())
         );
 

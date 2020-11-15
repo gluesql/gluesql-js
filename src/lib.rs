@@ -1,7 +1,12 @@
 mod convert;
-mod memory_storage;
+pub mod memory_storage;
 mod utils;
-mod web_storage;
+pub mod web_storage;
+
+use js_sys::Promise;
+use std::cell::RefCell;
+use std::rc::Rc;
+use wasm_bindgen_futures::future_to_promise;
 
 use wasm_bindgen::prelude::*;
 
@@ -23,6 +28,7 @@ extern "C" {
 }
 
 enum Storage {
+    Empty,
     Memory(MemoryStorage),
     Local(LocalStorage),
     Session(SessionStorage),
@@ -30,7 +36,7 @@ enum Storage {
 
 #[wasm_bindgen]
 pub struct Glue {
-    storage: Option<Storage>,
+    storage: Rc<RefCell<Storage>>,
 }
 
 #[wasm_bindgen]
@@ -64,58 +70,68 @@ impl Glue {
             }
         };
 
-        let storage = Some(storage);
+        let storage = Rc::new(RefCell::new(storage));
         log("[GlueSQL] ready to use :)");
 
         Ok(Self { storage })
     }
 
-    pub fn execute(&mut self, sql: String) -> Result<JsValue, JsValue> {
-        let mut payloads = vec![];
+    pub fn execute(&mut self, sql: String) -> Promise {
+        let cell = Rc::clone(&self.storage);
 
-        let queries = gluesql_core::parse(&sql).map_err(|error| {
-            let message = format!("{:?}", error);
+        future_to_promise(async move {
+            let queries = gluesql_core::parse(&sql).map_err(|error| {
+                let message = format!("{:?}", error);
 
-            JsValue::from_serde(&message).unwrap()
-        })?;
+                JsValue::from_serde(&message).unwrap()
+            })?;
 
-        macro_rules! execute {
-            ($storage: ident, $query: ident) => {
-                match gluesql_core::execute($storage, $query) {
-                    Ok((storage, payload)) => {
-                        payloads.push(payload);
+            let mut payloads = vec![];
 
-                        (storage, Ok(()))
+            macro_rules! execute {
+                ($storage: ident, $query: ident) => {
+                    match gluesql_core::execute($storage, $query).await {
+                        Ok((storage, payload)) => {
+                            payloads.push(payload);
+
+                            (storage, Ok(()))
+                        }
+                        Err((storage, error)) => {
+                            (storage, Err(JsValue::from_serde(&error).unwrap()))
+                        }
                     }
-                    Err((storage, error)) => (storage, Err(JsValue::from_serde(&error).unwrap())),
-                }
-            };
-        }
-
-        for query in queries.iter() {
-            let storage = self.storage.take().unwrap();
-            match storage {
-                Storage::Memory(storage) => {
-                    let (storage, result) = execute!(storage, query);
-
-                    self.storage = Some(Storage::Memory(storage));
-                    result?;
-                }
-                Storage::Local(storage) => {
-                    let (storage, result) = execute!(storage, query);
-
-                    self.storage = Some(Storage::Local(storage));
-                    result?;
-                }
-                Storage::Session(storage) => {
-                    let (storage, result) = execute!(storage, query);
-
-                    self.storage = Some(Storage::Session(storage));
-                    result?;
-                }
+                };
             }
-        }
 
-        Ok(convert(payloads))
+            let mut storage: Storage = cell.replace(Storage::Empty);
+
+            for query in queries.iter() {
+                match storage {
+                    Storage::Memory(s) => {
+                        let (s, result) = execute!(s, query);
+
+                        storage = Storage::Memory(s);
+                        result
+                    }
+                    Storage::Local(s) => {
+                        let (s, result) = execute!(s, query);
+
+                        storage = Storage::Local(s);
+                        result
+                    }
+                    Storage::Session(s) => {
+                        let (s, result) = execute!(s, query);
+
+                        storage = Storage::Session(s);
+                        result
+                    }
+                    Storage::Empty => Err(JsValue::from_str("unreachable empty storage")),
+                }?;
+            }
+
+            cell.replace(storage);
+
+            Ok(convert(payloads))
+        })
     }
 }
