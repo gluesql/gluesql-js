@@ -181,13 +181,6 @@ macro_rules! generate_storage_code {
             async fn fetch_schema(&self, table_name: &str) -> Result<Option<Schema>> {
                 let prefix = self.get_schema_prefix(table_name);
 
-                /*
-                let schema = $get_item(&prefix)
-                    .as_string()
-                    .ok_or(AlterTableError::TableNotFound(table_name.to_string()))?;
-                let schema = try_into!(serde_json::from_str(&schema));
-                */
-
                 let schema = match $get_item(&prefix).as_string() {
                     Some(schema) => Some(try_into!(serde_json::from_str(&schema))),
                     None => None,
