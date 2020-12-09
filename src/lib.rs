@@ -106,7 +106,7 @@ impl Glue {
             let mut storage: Storage = cell.replace(Storage::Empty);
 
             for query in queries.iter() {
-                match storage {
+                let result = match storage {
                     Storage::Memory(s) => {
                         let (s, result) = execute!(s, query);
 
@@ -126,11 +126,16 @@ impl Glue {
                         result
                     }
                     Storage::Empty => Err(JsValue::from_str("unreachable empty storage")),
-                }?;
+                };
+
+                if let Err(e) = result {
+                    cell.replace(storage);
+
+                    return Err(e);
+                }
             }
 
             cell.replace(storage);
-
             Ok(convert(payloads))
         })
     }
