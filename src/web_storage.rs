@@ -78,7 +78,7 @@ macro_rules! generate_storage_code {
             }
         }
 
-        #[async_trait]
+        #[async_trait(?Send)]
         impl StoreMut<$StorageKey> for $Storage {
             async fn generate_id(self, table_name: &str) -> MutResult<Self, $StorageKey> {
                 let prefix = self.get_id_prefix(table_name);
@@ -176,7 +176,7 @@ macro_rules! generate_storage_code {
             }
         }
 
-        #[async_trait]
+        #[async_trait(?Send)]
         impl Store<$StorageKey> for $Storage {
             async fn fetch_schema(&self, table_name: &str) -> Result<Option<Schema>> {
                 let prefix = self.get_schema_prefix(table_name);
@@ -217,7 +217,7 @@ macro_rules! generate_storage_code {
             }
         }
 
-        #[async_trait]
+        #[async_trait(?Send)]
         impl AlterTable for $Storage {
             async fn rename_schema(
                 self,

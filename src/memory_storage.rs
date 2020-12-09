@@ -32,7 +32,7 @@ impl MemoryStorage {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl StoreMut<DataKey> for MemoryStorage {
     async fn generate_id(self, table_name: &str) -> MutResult<Self, DataKey> {
         let id = self.id + 1;
@@ -143,7 +143,7 @@ impl StoreMut<DataKey> for MemoryStorage {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl Store<DataKey> for MemoryStorage {
     async fn fetch_schema(&self, table_name: &str) -> Result<Option<Schema>> {
         let schema = self.schema_map.get(table_name).cloned();
@@ -184,7 +184,7 @@ macro_rules! try_into {
     };
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl AlterTable for MemoryStorage {
     async fn rename_schema(self, table_name: &str, new_table_name: &str) -> MutResult<Self, ()> {
         let mut schema = try_into!(
