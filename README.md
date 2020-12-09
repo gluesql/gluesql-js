@@ -34,7 +34,7 @@ async function main() {
     INSERT INTO Test VALUES (103, "Yeah");
   `;
   
-  db.execute(sql);
+  await db.execute(sql);
 
   const items = (await db.execute("SELECT * FROM Test WHERE id < 103;"))[0];
   /* items:
