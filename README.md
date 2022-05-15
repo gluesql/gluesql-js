@@ -1,3 +1,9 @@
+# `gluesql-js` has been moved to the GlueSQL main repo
+## Link
+https://github.com/gluesql/gluesql/tree/main/gluesql-js
+
+
+---
 # GlueSQL-js
 [![npm version](https://badge.fury.io/js/gluesql.svg)](https://badge.fury.io/js/gluesql)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
