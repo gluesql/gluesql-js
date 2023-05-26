@@ -1,6 +1,6 @@
 # `gluesql-js` has been moved to the GlueSQL main repo
 ## Link
-https://github.com/gluesql/gluesql/tree/main/gluesql-js
+[https://github.com/gluesql/gluesql/tree/main/gluesql-js](https://github.com/gluesql/gluesql/tree/main/pkg/javascript)
 
 
 ---
