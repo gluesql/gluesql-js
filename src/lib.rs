@@ -143,7 +143,7 @@ impl Glue {
             let mut payloads = vec![];
             let mut storage = cell.replace(None).unwrap();
 
-            for query in queries.iter() {
+            for query in &queries {
                 let statement = translate(query);
                 let statement = match statement {
                     Ok(statement) => statement,
@@ -176,7 +176,7 @@ impl Glue {
 
                         return Err(error);
                     }
-                };
+                }
             }
 
             cell.replace(Some(storage));

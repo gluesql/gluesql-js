@@ -94,19 +94,16 @@ impl Store for WebStorage {
 
         table_names
             .iter()
-            .filter_map(|table_name| {
-                self.get(format!("{}/{}", SCHEMA_PATH, table_name))
-                    .transpose()
-            })
+            .filter_map(|table_name| self.get(format!("{SCHEMA_PATH}/{table_name}")).transpose())
             .collect::<Result<Vec<_>>>()
     }
 
     async fn fetch_schema(&self, table_name: &str) -> Result<Option<Schema>> {
-        self.get(format!("{}/{}", SCHEMA_PATH, table_name))
+        self.get(format!("{SCHEMA_PATH}/{table_name}"))
     }
 
     async fn fetch_data(&self, table_name: &str, target: &Key) -> Result<Option<DataRow>> {
-        let path = format!("{}/{}", DATA_PATH, table_name);
+        let path = format!("{DATA_PATH}/{table_name}");
         let row = self
             .get::<Vec<(Key, DataRow)>>(path)?
             .unwrap_or_default()
@@ -117,10 +114,10 @@ impl Store for WebStorage {
     }
 
     async fn scan_data<'a>(&'a self, table_name: &str) -> Result<RowIter<'a>> {
-        let path = format!("{}/{}", DATA_PATH, table_name);
+        let path = format!("{DATA_PATH}/{table_name}");
         let mut rows = self.get::<Vec<(Key, DataRow)>>(path)?.unwrap_or_default();
 
-        match self.get(format!("{}/{}", SCHEMA_PATH, table_name))? {
+        match self.get(format!("{SCHEMA_PATH}/{table_name}"))? {
             Some(Schema {
                 column_defs: Some(column_defs),
                 ..
@@ -147,7 +144,7 @@ impl StoreMut for WebStorage {
         table_names.push(schema.table_name.clone());
 
         self.set(TABLE_NAMES_PATH, table_names)?;
-        self.set(format!("{}/{}", SCHEMA_PATH, schema.table_name), schema)
+        self.set(format!("{SCHEMA_PATH}/{}", schema.table_name), schema)
     }
 
     async fn delete_schema(&mut self, table_name: &str) -> Result<()> {
@@ -158,13 +155,13 @@ impl StoreMut for WebStorage {
             .map(|i| table_names.remove(i));
 
         self.set(TABLE_NAMES_PATH, table_names)?;
-        self.delete(format!("{}/{}", SCHEMA_PATH, table_name));
-        self.delete(format!("{}/{}", DATA_PATH, table_name));
+        self.delete(format!("{SCHEMA_PATH}/{table_name}"));
+        self.delete(format!("{DATA_PATH}/{table_name}"));
         Ok(())
     }
 
     async fn append_data(&mut self, table_name: &str, new_rows: Vec<DataRow>) -> Result<()> {
-        let path = format!("{}/{}", DATA_PATH, table_name);
+        let path = format!("{DATA_PATH}/{table_name}");
         let rows = self.get::<Vec<(Key, DataRow)>>(&path)?.unwrap_or_default();
         let new_rows = new_rows.into_iter().map(|row| {
             let key = Key::Uuid(Uuid::new_v4().as_u128());
@@ -178,10 +175,10 @@ impl StoreMut for WebStorage {
     }
 
     async fn insert_data(&mut self, table_name: &str, new_rows: Vec<(Key, DataRow)>) -> Result<()> {
-        let path = format!("{}/{}", DATA_PATH, table_name);
+        let path = format!("{DATA_PATH}/{table_name}");
         let mut rows = self.get::<Vec<(Key, DataRow)>>(&path)?.unwrap_or_default();
 
-        for (key, row) in new_rows.into_iter() {
+        for (key, row) in new_rows {
             if let Some(i) = rows.iter().position(|(k, _)| k == &key) {
                 rows[i] = (key, row);
             } else {
@@ -193,10 +190,10 @@ impl StoreMut for WebStorage {
     }
 
     async fn delete_data(&mut self, table_name: &str, keys: Vec<Key>) -> Result<()> {
-        let path = format!("{}/{}", DATA_PATH, table_name);
+        let path = format!("{DATA_PATH}/{table_name}");
         let mut rows = self.get::<Vec<(Key, DataRow)>>(&path)?.unwrap_or_default();
 
-        for key in keys.iter() {
+        for key in &keys {
             if let Some(i) = rows.iter().position(|(k, _)| k == key) {
                 rows.remove(i);
             }

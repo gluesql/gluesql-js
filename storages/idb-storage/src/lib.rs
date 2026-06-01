@@ -37,6 +37,16 @@ impl<T> SendWrapperExt for T {}
 const SCHEMA_STORE: &str = "gluesql-schema";
 const DEFAULT_NAMESPACE: &str = "gluesql";
 
+fn record_upgrade_error(error: &Mutex<Option<Error>>, e: Error) {
+    let Ok(mut error) = error.lock() else {
+        let msg = JsValue::from_str("infallible - lock acquire failed");
+        console::error_1(&msg);
+        return;
+    };
+
+    *error = Some(e);
+}
+
 enum AlterType {
     InsertSchema,
     DeleteSchema,
@@ -61,16 +71,7 @@ impl IdbStorage {
                 let database = match event.database().err_into() {
                     Ok(database) => database,
                     Err(e) => {
-                        let mut error = match error.lock() {
-                            Ok(error) => error,
-                            Err(_) => {
-                                let msg = JsValue::from_str("infallible - lock acquire failed");
-                                console::error_1(&msg);
-                                return;
-                            }
-                        };
-
-                        *error = Some(e);
+                        record_upgrade_error(&error, e);
                         return;
                     }
                 };
@@ -79,16 +80,7 @@ impl IdbStorage {
                     .create_object_store(SCHEMA_STORE, ObjectStoreParams::new())
                     .err_into()
                 {
-                    let mut error = match error.lock() {
-                        Ok(error) => error,
-                        Err(_) => {
-                            let msg = JsValue::from_str("infallible - lock acquire failed");
-                            console::error_1(&msg);
-                            return;
-                        }
-                    };
-
-                    *error = Some(e);
+                    record_upgrade_error(&error, e);
                 }
             });
 
@@ -139,16 +131,7 @@ impl IdbStorage {
                 let database = match event.database().err_into() {
                     Ok(database) => database,
                     Err(e) => {
-                        let mut error = match error.lock() {
-                            Ok(error) => error,
-                            Err(_) => {
-                                let msg = JsValue::from_str("infallible - lock acquire failed");
-                                console::error_1(&msg);
-                                return;
-                            }
-                        };
-
-                        *error = Some(e);
+                        record_upgrade_error(&error, e);
                         return;
                     }
                 };
@@ -171,24 +154,12 @@ impl IdbStorage {
                         {
                             return;
                         }
-                        database
-                            .delete_object_store(table_name.as_str())
-                            .err_into()
-                            .map(|_| ())
+                        database.delete_object_store(table_name.as_str()).err_into()
                     }
                 };
 
                 if let Err(e) = err {
-                    let mut error = match error.lock() {
-                        Ok(error) => error,
-                        Err(_) => {
-                            let msg = JsValue::from_str("infallible - lock acquire failed");
-                            console::error_1(&msg);
-                            return;
-                        }
-                    };
-
-                    *error = Some(e);
+                    record_upgrade_error(&error, e);
                 }
             });
 
@@ -306,7 +277,7 @@ impl Store for IdbStorage {
             .await
             .err_into()?;
         let row = row
-            .map(|row| convert(row, column_defs.as_deref()))
+            .map(|row| convert(&row, column_defs.as_deref()))
             .transpose()?;
 
         transaction
@@ -368,7 +339,7 @@ impl Store for IdbStorage {
                 let key: JsonValue = key_js.into_serde().err_into()?;
                 let key: Key = Value::try_from(key)?.try_into()?;
 
-                let row = convert(row_js, column_defs.as_deref())?;
+                let row = convert(&row_js, column_defs.as_deref())?;
 
                 rows.push((key, row));
             }
@@ -410,7 +381,7 @@ impl StoreMut for IdbStorage {
             .is_some();
 
         if !schema_exists {
-            self.alter_object_store(schema.table_name.to_owned(), AlterType::InsertSchema)
+            self.alter_object_store(schema.table_name.clone(), AlterType::InsertSchema)
                 .await?;
         }
 
@@ -441,7 +412,7 @@ impl StoreMut for IdbStorage {
                 .send_wrapper()
                 .await
                 .err_into()?;
-        };
+        }
 
         transaction
             .take()

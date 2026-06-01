@@ -12,7 +12,7 @@ use {
     wasm_bindgen::JsValue,
 };
 
-pub fn convert(value: JsValue, column_defs: Option<&[ColumnDef]>) -> Result<DataRow> {
+pub fn convert(value: &JsValue, column_defs: Option<&[ColumnDef]>) -> Result<DataRow> {
     let value: JsonValue = value.into_serde().err_into()?;
 
     match (value, column_defs) {

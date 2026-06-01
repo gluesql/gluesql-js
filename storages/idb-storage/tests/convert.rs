@@ -51,7 +51,7 @@ async fn convert_schema() {
         Value::Bool(true),
     ]);
     assert_eq!(
-        convert(actual_data, Some(actual_defs.as_slice())),
+        convert(&actual_data, Some(actual_defs.as_slice())),
         Ok(expected)
     );
 }
@@ -73,5 +73,5 @@ async fn convert_schemaless() {
         .into_iter()
         .collect(),
     );
-    assert_eq!(convert(actual, None), Ok(expected));
+    assert_eq!(convert(&actual, None), Ok(expected));
 }
