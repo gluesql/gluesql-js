@@ -12,43 +12,81 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+
 jobs:
+  rust_checks:
+    name: Rust checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Check workspace
+        run: cargo check --workspace --target wasm32-unknown-unknown --locked
+
+      - name: Run clippy
+        run: cargo clippy --workspace --target wasm32-unknown-unknown --locked --all-targets
+
   js_build:
     name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
       - name: Set up node
         uses: actions/setup-node@v6
         with:
           node-version: 24
-      - uses: browser-actions/setup-firefox@latest
-      - name: Set up wasm pack
+
+      - name: Set up wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
         with:
           version: "v0.13.1"
-      - run: |
-          npm install
-          wasm-pack build --target web
-          wasm-pack build --target nodejs -- --no-default-features --features nodejs
-          wasm-pack test --headless --firefox
+
+      - name: Build web package
+        run: wasm-pack build --target web
+
+      - name: Build Node.js package
+        run: wasm-pack build --target nodejs -- --no-default-features --features nodejs
+
+  js_browser_tests:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: browser-actions/setup-firefox@latest
+
+      - name: Set up wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: "v0.13.1"
+
+      - name: Test JavaScript package
+        run: wasm-pack test --headless --firefox . -p gluesql-js
 
   js_storage_tests:
     name: Storage tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Set up node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
+
       - uses: browser-actions/setup-firefox@latest
-      - name: Set up wasm pack
+
+      - name: Set up wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
         with:
           version: "v0.13.1"
-      - run: |
-          cd storages/web-storage
-          wasm-pack test --headless --firefox
-          cd ../idb-storage
-          WASM_BINDGEN_TEST_TIMEOUT=60 wasm-pack test --headless --firefox
+
+      - name: Test WebStorage
+        run: wasm-pack test --headless --firefox storages/web-storage
+
+      - name: Test IndexedDB storage
+        run: WASM_BINDGEN_TEST_TIMEOUT=60 wasm-pack test --headless --firefox storages/idb-storage
