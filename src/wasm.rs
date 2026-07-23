@@ -1,20 +1,11 @@
 use {
     crate::{payload::convert_to_js_value, utils},
-    gluesql_core::{
-        prelude::{execute, parse, translate},
-        store::Planner,
-    },
-    gluesql_memory_storage::MemoryStorage,
-    js_sys::Promise,
-    std::{cell::RefCell, rc::Rc},
-    wasm_bindgen::prelude::*,
-    wasm_bindgen_futures::future_to_promise,
-};
-
-#[cfg(not(feature = "nodejs"))]
-use {
     gluesql_composite_storage::CompositeStorage,
+    gluesql_core::prelude::Glue as CoreGlue,
+    gluesql_memory_storage::MemoryStorage,
     gluesql_web_storage::{WebStorage, WebStorageType},
+    js_sys::Promise,
+    wasm_bindgen::prelude::*,
 };
 
 #[wasm_bindgen]
@@ -25,11 +16,7 @@ extern "C" {
 
 #[wasm_bindgen]
 pub struct Glue {
-    #[cfg(not(feature = "nodejs"))]
-    storage: Rc<RefCell<Option<CompositeStorage>>>,
-
-    #[cfg(feature = "nodejs")]
-    storage: Rc<RefCell<Option<MemoryStorage>>>,
+    inner: CoreGlue<CompositeStorage>,
 }
 
 impl Default for Glue {
@@ -45,101 +32,41 @@ impl Glue {
     pub fn new() -> Self {
         utils::set_panic_hook();
 
-        #[cfg(not(feature = "nodejs"))]
-        let storage = {
-            let mut storage = CompositeStorage::default();
-            storage.push("memory", MemoryStorage::default());
-            storage.push("localStorage", WebStorage::new(WebStorageType::Local));
-            storage.push("sessionStorage", WebStorage::new(WebStorageType::Session));
-            storage.set_default("memory");
-            debug("[GlueSQL] loaded: memory, localStorage, sessionStorage");
-            debug("[GlueSQL] default engine: memory");
+        let mut storage = CompositeStorage::default();
+        storage.push("memory", MemoryStorage::default());
+        storage.push("localStorage", WebStorage::new(WebStorageType::Local));
+        storage.push("sessionStorage", WebStorage::new(WebStorageType::Session));
+        storage.set_default("memory");
 
-            storage
-        };
-        #[cfg(feature = "nodejs")]
-        let storage = MemoryStorage::default();
-
-        let storage = Rc::new(RefCell::new(Some(storage)));
-
+        debug("[GlueSQL] loaded: memory, localStorage, sessionStorage");
+        debug("[GlueSQL] default engine: memory");
         debug("[GlueSQL] hello :)");
 
-        Self { storage }
+        Self {
+            inner: CoreGlue::new(storage),
+        }
     }
 
-    #[cfg(not(feature = "nodejs"))]
     #[wasm_bindgen(js_name = setDefaultEngine)]
     pub fn set_default_engine(&mut self, default_engine: String) -> Result<(), JsValue> {
-        let cell = Rc::clone(&self.storage);
-        let mut storage = cell.replace(None).unwrap();
+        if ["memory", "localStorage", "sessionStorage"]
+            .iter()
+            .any(|engine| engine == &default_engine.as_str())
+        {
+            self.inner.storage.set_default(default_engine);
 
-        let result = {
-            if ["memory", "localStorage", "sessionStorage"]
-                .iter()
-                .any(|engine| engine == &default_engine.as_str())
-            {
-                storage.set_default(default_engine);
-
-                Ok(())
-            } else {
-                Err(JsValue::from_str(
-                    format!("{default_engine} is not supported (options: memory, localStorage, sessionStorage)").as_str()
-                ))
-            }
-        };
-
-        cell.replace(Some(storage));
-        result
+            Ok(())
+        } else {
+            Err(JsValue::from_str(
+                format!("{default_engine} is not supported (options: memory, localStorage, sessionStorage)").as_str()
+            ))
+        }
     }
 
     pub fn query(&mut self, sql: String) -> Promise {
-        let cell = Rc::clone(&self.storage);
-
-        future_to_promise(async move {
-            let queries = parse(&sql).map_err(|error| JsValue::from_str(&format!("{error}")))?;
-
-            let mut payloads = vec![];
-            let mut storage = cell.replace(None).unwrap();
-
-            for query in &queries {
-                let statement = translate(query);
-                let statement = match statement {
-                    Ok(statement) => statement,
-                    Err(error) => {
-                        cell.replace(Some(storage));
-
-                        return Err(JsValue::from_str(&format!("{error}")));
-                    }
-                };
-                let statement = storage.plan(statement).await;
-                let statement = match statement {
-                    Ok(statement) => statement,
-                    Err(error) => {
-                        cell.replace(Some(storage));
-
-                        return Err(JsValue::from_str(&format!("{error}")));
-                    }
-                };
-
-                let result = execute(&mut storage, &statement)
-                    .await
-                    .map_err(|error| JsValue::from_str(&format!("{error}")));
-
-                match result {
-                    Ok(payload) => {
-                        payloads.push(payload);
-                    }
-                    Err(error) => {
-                        cell.replace(Some(storage));
-
-                        return Err(error);
-                    }
-                }
-            }
-
-            cell.replace(Some(storage));
-
-            Ok(convert_to_js_value(payloads))
-        })
+        match self.inner.execute(sql) {
+            Ok(payloads) => Promise::resolve(&convert_to_js_value(payloads)),
+            Err(error) => Promise::reject(&JsValue::from_str(&error.to_string())),
+        }
     }
 }
