@@ -133,6 +133,3 @@ jobs:
 
       - name: Test WebStorage
         run: wasm-pack test --headless --firefox storages/web-storage
-
-      - name: Test IndexedDB storage
-        run: WASM_BINDGEN_TEST_TIMEOUT=60 wasm-pack test --headless --firefox storages/idb-storage
