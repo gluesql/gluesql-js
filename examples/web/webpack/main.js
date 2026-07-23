@@ -2,11 +2,10 @@ import { gluesql } from 'gluesql';
 
 async function run() {
   const db = await gluesql();
-  await db.loadIndexedDB();
 
   const result = await db.query(`
     DROP TABLE IF EXISTS Foo;
-    CREATE TABLE Foo (id INTEGER, name TEXT) ENGINE = indexedDB;
+    CREATE TABLE Foo (id INTEGER, name TEXT) ENGINE = localStorage;
     INSERT INTO Foo VALUES (1, 'hello'), (2, 'world');
     SELECT *, id as wow_id FROM Foo;
   `);

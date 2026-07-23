@@ -3,12 +3,10 @@ resolver = "2"
 members = [
   ".",
   "storages/web-storage",
-  "storages/idb-storage",
 ]
 default-members = [
   ".",
   "storages/web-storage",
-  "storages/idb-storage",
 ]
 
 [workspace.package]
@@ -24,7 +22,6 @@ gluesql-core = { version = "0.19.0" }
 gluesql_memory_storage = { version = "0.19.0" }
 gluesql-composite-storage = { version = "0.19.0" }
 gluesql-web-storage = { path = "storages/web-storage", version = "0.19.0" }
-gluesql-idb-storage = { path = "storages/idb-storage", version = "0.19.0" }
 test-suite = { package = "gluesql-test-suite", version = "0.19.0" }
 getrandom = { version = "0.2", features = ["js"] }
 
@@ -72,7 +69,6 @@ serde_json = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gluesql-web-storage.workspace = true
-gluesql-idb-storage.workspace = true
 gluesql-composite-storage.workspace = true
 getrandom.workspace = true
 wasm-bindgen = { version = "0.2.100" }

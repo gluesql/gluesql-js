@@ -14,7 +14,6 @@ use {
 #[cfg(not(feature = "nodejs"))]
 use {
     gluesql_composite_storage::CompositeStorage,
-    gluesql_idb_storage::IdbStorage,
     gluesql_web_storage::{WebStorage, WebStorageType},
 };
 
@@ -69,59 +68,23 @@ impl Glue {
     }
 
     #[cfg(not(feature = "nodejs"))]
-    #[wasm_bindgen(js_name = loadIndexedDB)]
-    pub fn load_indexeddb(&mut self, namespace: Option<String>) -> Promise {
-        let cell = Rc::clone(&self.storage);
-
-        future_to_promise(async move {
-            let mut storage = cell.replace(None).unwrap();
-
-            if storage.storages.contains_key("indexedDB") {
-                cell.replace(Some(storage));
-
-                return Err(JsValue::from_str("indexedDB storage is already loaded"));
-            }
-
-            let idb_storage = match IdbStorage::new(namespace).await {
-                Ok(storage) => storage,
-                Err(error) => {
-                    cell.replace(Some(storage));
-
-                    return Err(JsValue::from_str(&format!("{error}")));
-                }
-            };
-
-            storage.push("indexedDB", idb_storage);
-            debug("[GlueSQL] loaded: indexedDB");
-
-            cell.replace(Some(storage));
-
-            Ok(JsValue::NULL)
-        })
-    }
-
-    #[cfg(not(feature = "nodejs"))]
     #[wasm_bindgen(js_name = setDefaultEngine)]
     pub fn set_default_engine(&mut self, default_engine: String) -> Result<(), JsValue> {
         let cell = Rc::clone(&self.storage);
         let mut storage = cell.replace(None).unwrap();
 
         let result = {
-            if !["memory", "localStorage", "sessionStorage", "indexedDB"]
+            if ["memory", "localStorage", "sessionStorage"]
                 .iter()
                 .any(|engine| engine == &default_engine.as_str())
             {
-                Err(JsValue::from_str(
-                    format!("{default_engine} is not supported (options: memory, localStorage, sessionStorage, indexedDB)").as_str()
-                ))
-            } else if default_engine == "indexedDB" && !storage.storages.contains_key("indexedDB") {
-                Err(JsValue::from_str(
-                    "indexedDB is not loaded - run loadIndexedDB() first",
-                ))
-            } else {
                 storage.set_default(default_engine);
 
                 Ok(())
+            } else {
+                Err(JsValue::from_str(
+                    format!("{default_engine} is not supported (options: memory, localStorage, sessionStorage)").as_str()
+                ))
             }
         };
 
