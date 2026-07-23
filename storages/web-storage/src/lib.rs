@@ -2,16 +2,14 @@
 #![deny(clippy::str_to_string)]
 
 use {
-    async_trait::async_trait,
-    futures::stream::iter,
     gloo_storage::{LocalStorage, SessionStorage, Storage, errors::StorageError},
     gluesql_core::{
         ast::ColumnUniqueOption,
-        data::{Key, Schema},
+        data::{Key, Schema, Value},
         error::{Error, Result},
         store::{
-            AlterTable, CustomFunction, CustomFunctionMut, DataRow, Index, IndexMut, Metadata,
-            Planner, RowIter, Store, StoreMut, Transaction,
+            AlterTable, CustomFunction, CustomFunctionMut, Index, IndexMut, Metadata, Planner,
+            RowIter, Store, StoreMut, Transaction,
         },
     },
     serde::{Deserialize, Serialize},
@@ -24,7 +22,7 @@ const TABLE_NAMES_PATH: &str = "gluesql-schema-names";
 /// gluesql-schema/{schema_name} -> {Schema}
 const SCHEMA_PATH: &str = "gluesql-schema";
 
-/// gluesql-data/{table_name} -> {Vec<DataRow>}
+/// gluesql-data/{table_name} -> {Vec<(Key, Vec<Value>)>}
 const DATA_PATH: &str = "gluesql-data";
 
 #[derive(Clone, Copy, Default, Serialize, Deserialize)]
@@ -86,9 +84,8 @@ impl WebStorage {
     }
 }
 
-#[async_trait]
 impl Store for WebStorage {
-    async fn fetch_all_schemas(&self) -> Result<Vec<Schema>> {
+    fn fetch_all_schemas(&self) -> Result<Vec<Schema>> {
         let mut table_names: Vec<String> = self.get(TABLE_NAMES_PATH)?.unwrap_or_default();
         table_names.sort();
 
@@ -98,14 +95,14 @@ impl Store for WebStorage {
             .collect::<Result<Vec<_>>>()
     }
 
-    async fn fetch_schema(&self, table_name: &str) -> Result<Option<Schema>> {
+    fn fetch_schema(&self, table_name: &str) -> Result<Option<Schema>> {
         self.get(format!("{SCHEMA_PATH}/{table_name}"))
     }
 
-    async fn fetch_data(&self, table_name: &str, target: &Key) -> Result<Option<DataRow>> {
+    fn fetch_data(&self, table_name: &str, target: &Key) -> Result<Option<Vec<Value>>> {
         let path = format!("{DATA_PATH}/{table_name}");
         let row = self
-            .get::<Vec<(Key, DataRow)>>(path)?
+            .get::<Vec<(Key, Vec<Value>)>>(path)?
             .unwrap_or_default()
             .into_iter()
             .find_map(|(key, row)| (&key == target).then_some(row));
@@ -113,9 +110,11 @@ impl Store for WebStorage {
         Ok(row)
     }
 
-    async fn scan_data<'a>(&'a self, table_name: &str) -> Result<RowIter<'a>> {
+    fn scan_data<'a>(&'a self, table_name: &str) -> Result<RowIter<'a>> {
         let path = format!("{DATA_PATH}/{table_name}");
-        let mut rows = self.get::<Vec<(Key, DataRow)>>(path)?.unwrap_or_default();
+        let mut rows = self
+            .get::<Vec<(Key, Vec<Value>)>>(path)?
+            .unwrap_or_default();
 
         match self.get(format!("{SCHEMA_PATH}/{table_name}"))? {
             Some(Schema {
@@ -133,13 +132,12 @@ impl Store for WebStorage {
             _ => {}
         }
 
-        Ok(Box::pin(iter(rows.into_iter().map(Ok))))
+        Ok(Box::new(rows.into_iter().map(Ok)))
     }
 }
 
-#[async_trait]
 impl StoreMut for WebStorage {
-    async fn insert_schema(&mut self, schema: &Schema) -> Result<()> {
+    fn insert_schema(&mut self, schema: &Schema) -> Result<()> {
         let mut table_names: Vec<String> = self.get(TABLE_NAMES_PATH)?.unwrap_or_default();
         table_names.push(schema.table_name.clone());
 
@@ -147,7 +145,7 @@ impl StoreMut for WebStorage {
         self.set(format!("{SCHEMA_PATH}/{}", schema.table_name), schema)
     }
 
-    async fn delete_schema(&mut self, table_name: &str) -> Result<()> {
+    fn delete_schema(&mut self, table_name: &str) -> Result<()> {
         let mut table_names: Vec<String> = self.get(TABLE_NAMES_PATH)?.unwrap_or_default();
         table_names
             .iter()
@@ -160,9 +158,11 @@ impl StoreMut for WebStorage {
         Ok(())
     }
 
-    async fn append_data(&mut self, table_name: &str, new_rows: Vec<DataRow>) -> Result<()> {
+    fn append_data(&mut self, table_name: &str, new_rows: Vec<Vec<Value>>) -> Result<()> {
         let path = format!("{DATA_PATH}/{table_name}");
-        let rows = self.get::<Vec<(Key, DataRow)>>(&path)?.unwrap_or_default();
+        let rows = self
+            .get::<Vec<(Key, Vec<Value>)>>(&path)?
+            .unwrap_or_default();
         let new_rows = new_rows.into_iter().map(|row| {
             let key = Key::Uuid(Uuid::new_v4().as_u128());
 
@@ -174,9 +174,11 @@ impl StoreMut for WebStorage {
         self.set(path, rows)
     }
 
-    async fn insert_data(&mut self, table_name: &str, new_rows: Vec<(Key, DataRow)>) -> Result<()> {
+    fn insert_data(&mut self, table_name: &str, new_rows: Vec<(Key, Vec<Value>)>) -> Result<()> {
         let path = format!("{DATA_PATH}/{table_name}");
-        let mut rows = self.get::<Vec<(Key, DataRow)>>(&path)?.unwrap_or_default();
+        let mut rows = self
+            .get::<Vec<(Key, Vec<Value>)>>(&path)?
+            .unwrap_or_default();
 
         for (key, row) in new_rows {
             if let Some(i) = rows.iter().position(|(k, _)| k == &key) {
@@ -189,9 +191,11 @@ impl StoreMut for WebStorage {
         self.set(path, rows)
     }
 
-    async fn delete_data(&mut self, table_name: &str, keys: Vec<Key>) -> Result<()> {
+    fn delete_data(&mut self, table_name: &str, keys: Vec<Key>) -> Result<()> {
         let path = format!("{DATA_PATH}/{table_name}");
-        let mut rows = self.get::<Vec<(Key, DataRow)>>(&path)?.unwrap_or_default();
+        let mut rows = self
+            .get::<Vec<(Key, Vec<Value>)>>(&path)?
+            .unwrap_or_default();
 
         for key in &keys {
             if let Some(i) = rows.iter().position(|(k, _)| k == key) {

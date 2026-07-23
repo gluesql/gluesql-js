@@ -18,11 +18,11 @@ repository = "https://github.com/gluesql/gluesql-js"
 documentation = "https://docs.rs/gluesql/"
 
 [workspace.dependencies]
-gluesql-core = { version = "0.19.0" }
-gluesql_memory_storage = { version = "0.19.0" }
-gluesql-composite-storage = { version = "0.19.0" }
+gluesql-core = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
+gluesql_memory_storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
+gluesql-composite-storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
 gluesql-web-storage = { path = "storages/web-storage", version = "0.19.0" }
-test-suite = { package = "gluesql-test-suite", version = "0.19.0" }
+test-suite = { package = "gluesql-test-suite", git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
 getrandom = { version = "0.2", features = ["js"] }
 
 [workspace.lints.clippy]
@@ -58,7 +58,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["console_error_panic_hook"]
 
-nodejs = ["console_error_panic_hook"]
+nodejs = []
 
 [dependencies]
 gluesql-core.workspace = true
@@ -72,7 +72,6 @@ gluesql-web-storage.workspace = true
 gluesql-composite-storage.workspace = true
 getrandom.workspace = true
 wasm-bindgen = { version = "0.2.100" }
-wasm-bindgen-futures = "0.4.29"
 js-sys = "0.3"
 gloo-utils = { version = "0.1.6", features = ["serde"] }
 # The `console_error_panic_hook` crate provides better debugging of panics by
@@ -82,7 +81,6 @@ gloo-utils = { version = "0.1.6", features = ["serde"] }
 console_error_panic_hook = { version = "0.1.6", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-futures-executor = "0.3"
 napi = { version = "3", default-features = false, features = ["napi4"] }
 napi-derive = "3"
 
@@ -93,7 +91,7 @@ napi-build = "2"
 test-suite.workspace = true
 
 wasm-bindgen-test = "0.3.50"
-async-trait = "0.1"
+wasm-bindgen-futures = "0.4.29"
 
 [lints]
 workspace = true

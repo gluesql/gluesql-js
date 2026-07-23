@@ -1,9 +1,8 @@
 #![cfg(target_arch = "wasm32")]
 
 use {
-    async_trait::async_trait, gluesql_composite_storage::CompositeStorage,
-    gluesql_core::prelude::Glue, gluesql_memory_storage::MemoryStorage, test_suite::*,
-    wasm_bindgen_test::*,
+    gluesql_composite_storage::CompositeStorage, gluesql_core::prelude::Glue,
+    gluesql_memory_storage::MemoryStorage, test_suite::*, wasm_bindgen_test::*,
 };
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -12,9 +11,8 @@ struct CompositeTester {
     glue: Glue<CompositeStorage>,
 }
 
-#[async_trait(?Send)]
 impl Tester<CompositeStorage> for CompositeTester {
-    async fn new(_: &str) -> Self {
+    fn new(_: &str) -> Self {
         let mut storage = CompositeStorage::default();
         storage.push("memory", MemoryStorage::default());
         storage.set_default("memory");
