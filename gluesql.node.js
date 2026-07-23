@@ -1,7 +1,13 @@
-const { Glue } = require('./dist_nodejs/gluesql_js.js');
+const native = require('./gluesql.native.js');
 
 function gluesql() {
-  return new Glue();
+  const db = native.gluesql();
+
+  return {
+    async query(sql) {
+      return JSON.parse(db.query(sql));
+    },
+  };
 }
 
 module.exports = { gluesql };

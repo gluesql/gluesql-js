@@ -1,17 +1,20 @@
-#![cfg(target_arch = "wasm32")]
-
 use {
-    gloo_utils::format::JsValueSerdeExt,
     gluesql_core::prelude::{Payload, PayloadVariable},
     serde_json::{Value as Json, json},
-    wasm_bindgen::prelude::JsValue,
 };
 
-pub fn convert(payloads: Vec<Payload>) -> JsValue {
-    let payloads = payloads.into_iter().map(convert_payload).collect();
-    let payloads = Json::Array(payloads);
+#[cfg(target_arch = "wasm32")]
+use {gloo_utils::format::JsValueSerdeExt, wasm_bindgen::prelude::JsValue};
 
-    JsValue::from_serde(&payloads).unwrap()
+pub fn convert(payloads: Vec<Payload>) -> Json {
+    let payloads = payloads.into_iter().map(convert_payload).collect();
+
+    Json::Array(payloads)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn convert_to_js_value(payloads: Vec<Payload>) -> JsValue {
+    JsValue::from_serde(&convert(payloads)).unwrap()
 }
 
 fn convert_payload(payload: Payload) -> Json {

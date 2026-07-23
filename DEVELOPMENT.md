@@ -15,7 +15,7 @@ opt-level = "s"
 wasm-pack build --no-pack --target web --no-typescript --release --out-dir ./dist_web
 
 # nodejs
-wasm-pack build --no-pack --target nodejs --no-typescript --release --out-dir ./dist_nodejs -- --no-default-features --features nodejs
+npm run build:node
 ```
 
 ### 🔬 Test in Headless Browsers with `wasm-pack test`

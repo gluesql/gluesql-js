@@ -1,0 +1,37 @@
+{
+  "name": "@gluesql/native-win32-x64-msvc",
+  "version": "0.19.0",
+  "cpu": [
+    "x64"
+  ],
+  "main": "gluesql_js.win32-x64-msvc.node",
+  "files": [
+    "gluesql_js.win32-x64-msvc.node"
+  ],
+  "description": "GlueSQL is quite sticky, it attaches to anywhere",
+  "keywords": [
+    "SQL",
+    "Database",
+    "SQL.js",
+    "websql",
+    "rust",
+    "webassembly",
+    "wasm"
+  ],
+  "author": "Taehoon Moon",
+  "homepage": "https://gluesql.org/docs",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gluesql/gluesql-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gluesql/gluesql-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "win32"
+  ]
+}

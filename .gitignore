@@ -5,6 +5,10 @@ node_modules/
 bin/
 pkg/
 target/
+*.node
+gluesql.native.js
+gluesql.native.d.ts
+index.d.ts
 **/*.rs.bk
 wasm-pack.log
 package-lock.json

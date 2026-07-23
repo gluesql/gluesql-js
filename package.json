@@ -4,6 +4,12 @@
   "description": "GlueSQL is quite sticky, it attaches to anywhere",
   "browser": "gluesql.js",
   "main": "gluesql.node.js",
+  "scripts": {
+    "build": "npm run build:web && npm run build:node",
+    "build:web": "wasm-pack build --no-pack --target web --no-typescript --release --out-dir ./dist_web",
+    "build:node": "napi build --release --platform --js gluesql.native.js --dts gluesql.native.d.ts --no-default-features --features nodejs",
+    "test:node": "node tests/nodejs.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gluesql/gluesql-js.git"
@@ -23,9 +29,12 @@
     "url": "https://github.com/gluesql/gluesql-js/issues"
   },
   "homepage": "https://gluesql.org/docs",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
-    "dist_nodejs/gluesql_js.js",
-    "dist_nodejs/gluesql_js_bg.wasm",
+    "gluesql.native.js",
+    "gluesql.native.d.ts",
     "dist_web/gluesql_js.js",
     "dist_web/gluesql_js_bg.wasm",
     "gluesql.js",
@@ -33,5 +42,25 @@
     "gluesql.rollup.js",
     "package.json",
     "README.md"
-  ]
+  ],
+  "napi": {
+    "binaryName": "gluesql_js",
+    "packageName": "@gluesql/native",
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "x86_64-pc-windows-msvc"
+    ]
+  },
+  "optionalDependencies": {
+    "@gluesql/native-darwin-arm64": "0.19.0",
+    "@gluesql/native-darwin-x64": "0.19.0",
+    "@gluesql/native-linux-x64-gnu": "0.19.0",
+    "@gluesql/native-win32-x64-msvc": "0.19.0"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.7.1",
+    "wasm-pack": "^0.13.1"
+  }
 }
