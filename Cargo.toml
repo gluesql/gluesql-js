@@ -59,6 +59,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 nodejs = []
+opfs = []
 
 [dependencies]
 gluesql-core.workspace = true

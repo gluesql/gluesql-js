@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>GlueSQL OPFS example</title>
+    <script type="module">
+      import { gluesql } from '../../../gluesql.opfs.js';
+
+      const showError = (message) => {
+        document.querySelector('#status').textContent = `FAILED: ${message}`;
+      };
+      window.addEventListener('error', (e) => showError(e.message));
+      window.addEventListener('unhandledrejection', (e) => showError(String(e.reason)));
+
+      async function run() {
+        const db = gluesql();
+
+        try {
+          const result = await db.query(`
+            DROP TABLE IF EXISTS Foo;
+            CREATE TABLE Foo (id INTEGER, name TEXT);
+            INSERT INTO Foo VALUES (1, 'hello'), (2, 'worker');
+            SELECT * FROM Foo;
+          `);
+
+          for (const item of result) {
+            const node = document.createElement('code');
+
+            node.textContent = [
+              `type: ${item.type}`,
+              item.affected !== undefined ? `affected: ${item.affected}` : '',
+              item.rows ? `rows: ${JSON.stringify(item.rows)}` : '',
+            ].filter(Boolean).join(' | ');
+
+            document.querySelector('#box').append(node);
+          }
+
+          document.querySelector('#status').textContent = 'OK: query ran inside the worker';
+        } catch (error) {
+          document.querySelector('#status').textContent = `FAILED: ${error.message}`;
+        }
+      }
+
+      run();
+    </script>
+    <style>
+      body { padding: 0; margin: 0; }
+      #box {
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        background-color: #222;
+        color: white;
+        min-height: 100vh;
+        box-sizing: border-box;
+      }
+      code {
+        margin: 5px;
+        padding: 10px;
+        font-family: monospace;
+        border: 1px solid white;
+      }
+      #status { font-family: monospace; padding: 10px 5px; }
+    </style>
+  </head>
+  <body>
+    <div id="box">
+      <div id="status">loading...</div>
+    </div>
+  </body>
+</html>
