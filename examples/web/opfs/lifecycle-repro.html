@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <body>
+    <pre id="result">running...</pre>
+
+    <script type="module">
+      import { gluesql } from '../../../gluesql.opfs.js';
+
+      const settlesAs = (promise, timeoutMs = 250) =>
+        Promise.race([
+          promise.then(
+            () => 'resolved',
+            () => 'rejected',
+          ),
+          new Promise((resolve) =>
+            setTimeout(() => resolve('pending'), timeoutMs),
+          ),
+        ]);
+
+      // A normal query error is handled without stopping the worker.
+      const queryErrorDb = gluesql();
+      let queryError;
+
+      try {
+        await queryErrorDb.query('SELECT * FROM Missing');
+      } catch (error) {
+        queryError = error.message;
+      } finally {
+        queryErrorDb.terminate();
+      }
+
+      // Terminate while a request is in flight.
+      const terminated = gluesql();
+      const inFlight = terminated.query('SELECT 1');
+
+      terminated.terminate();
+
+      const inFlightAfterTerminate =
+        await settlesAs(inFlight);
+      const queryAfterTerminate =
+        await settlesAs(terminated.query('SELECT 2'));
+
+      // Simulate a missing or incorrectly packaged worker asset.
+      const failed = gluesql(
+        new URL('./missing-worker.js', import.meta.url),
+      );
+
+      const initialWorkerFailure = await settlesAs(
+        failed.query('SELECT 1'),
+        5_000,
+      );
+      const queryAfterWorkerFailure = await settlesAs(
+        failed.query('SELECT 2'),
+      );
+
+      failed.terminate();
+
+      const result = {
+        queryError,
+        inFlightAfterTerminate,
+        queryAfterTerminate,
+        initialWorkerFailure,
+        queryAfterWorkerFailure,
+      };
+
+      document.querySelector('#result').textContent =
+        JSON.stringify(result, null, 2);
+    </script>
+  </body>
+</html>

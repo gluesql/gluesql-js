@@ -1,4 +1,5 @@
 dist_web/
+dist_opfs/
 dist_nodejs/
 dist/
 node_modules/
