@@ -130,6 +130,34 @@ jobs:
       - name: Test OPFS package
         run: wasm-pack test --headless --firefox . -p gluesql-js --features opfs --test opfs
 
+  js_proxy_tests:
+    name: Worker proxy tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install --no-package-lock
+
+      - name: Set up wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: "v0.13.1"
+
+      - name: Build OPFS package
+        run: npm run build:opfs
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run worker proxy tests
+        run: npm run test:browser
+
   js_storage_tests:
     name: Storage tests
     runs-on: ubuntu-latest

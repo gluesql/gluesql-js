@@ -13,3 +13,5 @@ index.d.ts
 **/*.rs.bk
 wasm-pack.log
 package-lock.json
+playwright-report/
+test-results/

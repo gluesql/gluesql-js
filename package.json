@@ -9,7 +9,8 @@
     "build:web": "wasm-pack build --no-pack --target web --no-typescript --release --out-dir ./dist_web",
     "build:opfs": "wasm-pack build --no-pack --target web --no-typescript --release --out-dir ./dist_opfs -- --features opfs",
     "build:node": "napi build --release --platform --js gluesql.native.js --dts gluesql.native.d.ts --no-default-features --features nodejs",
-    "test:node": "node tests/nodejs.js"
+    "test:node": "node tests/nodejs.js",
+    "test:browser": "playwright test"
   },
   "repository": {
     "type": "git",
@@ -62,6 +63,7 @@
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.7.1",
+    "@playwright/test": "^1.62.0",
     "wasm-pack": "^0.13.1"
   }
 }
