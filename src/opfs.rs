@@ -1,7 +1,7 @@
 use {
     crate::{payload::convert_to_js_value, utils},
     gluesql_core::prelude::Glue as CoreGlue,
-    gluesql_memory_storage::MemoryStorage,
+    gluesql_opfs_storage::OpfsStorage,
     js_sys::Promise,
     wasm_bindgen::prelude::*,
 };
@@ -14,29 +14,28 @@ extern "C" {
 
 #[wasm_bindgen]
 pub struct Glue {
-    inner: CoreGlue<MemoryStorage>,
+    inner: CoreGlue<OpfsStorage>,
 }
 
-impl Default for Glue {
-    fn default() -> Self {
-        Self::new()
-    }
+#[wasm_bindgen]
+pub async fn load(namespace: Option<String>) -> Result<Glue, JsValue> {
+    utils::set_panic_hook();
+
+    let namespace = namespace.unwrap_or_else(|| "gluesql".to_owned());
+    let storage = OpfsStorage::open(&namespace)
+        .await
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+
+    debug(&format!("[GlueSQL] opfs build loaded: {namespace}"));
+
+    Ok(Glue {
+        inner: CoreGlue::new(storage),
+    })
 }
 
 #[allow(clippy::unused_unit)]
 #[wasm_bindgen]
 impl Glue {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        utils::set_panic_hook();
-
-        debug("[GlueSQL] opfs build loaded (scaffolding storage: memory)");
-
-        Self {
-            inner: CoreGlue::new(MemoryStorage::default()),
-        }
-    }
-
     pub fn query(&mut self, sql: String) -> Promise {
         match self.inner.execute(sql) {
             Ok(payloads) => Promise::resolve(&convert_to_js_value(payloads)),
