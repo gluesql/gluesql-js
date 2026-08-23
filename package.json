@@ -4,6 +4,16 @@
   "description": "GlueSQL is quite sticky, it attaches to anywhere",
   "browser": "gluesql.js",
   "main": "gluesql.node.js",
+  "exports": {
+    ".": {
+      "browser": "./gluesql.js",
+      "default": "./gluesql.node.js"
+    },
+    "./opfs": "./gluesql.opfs.js",
+    "./gluesql.js": "./gluesql.js",
+    "./gluesql.rollup.js": "./gluesql.rollup.js",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "build": "npm run build:web && npm run build:node",
     "build:web": "wasm-pack build --no-pack --target web --no-typescript --release --out-dir ./dist_web",
@@ -39,8 +49,12 @@
     "gluesql.native.d.ts",
     "dist_web/gluesql_js.js",
     "dist_web/gluesql_js_bg.wasm",
+    "dist_opfs/gluesql_js.js",
+    "dist_opfs/gluesql_js_bg.wasm",
     "gluesql.js",
     "gluesql.node.js",
+    "gluesql.opfs.js",
+    "gluesql.opfs.worker.js",
     "gluesql.rollup.js",
     "package.json",
     "README.md"

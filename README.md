@@ -139,6 +139,43 @@ await db.query(`
 
 Node.js currently supports only non-persistent memory storage.
 
+## OPFS Entry Point
+
+`gluesql/opfs` is a separate worker-based entry point backed by the
+[Origin Private File System](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).
+GlueSQL runs inside a Dedicated Worker and stores data in a file under the
+OPFS root, so data survives page reloads and browser restarts.
+
+```javascript
+import { gluesql } from 'gluesql/opfs';
+
+const db = gluesql();
+
+await db.query(`
+  CREATE TABLE User (id INTEGER, name TEXT);
+  INSERT INTO User VALUES (1, 'glue');
+`);
+
+// After a reload, the data is still there:
+const [result] = await db.query('SELECT * FROM User');
+```
+
+Options:
+
+```javascript
+// Separate databases per namespace (each namespace is its own OPFS file)
+const app1 = gluesql({ namespace: 'app1' });
+const app2 = gluesql({ namespace: 'app2' });
+```
+
+Notes:
+
+- OPFS requires a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts) (HTTPS or localhost).
+- This entry point provides OPFS as its only storage; the `ENGINE` clause
+  and `setDefaultEngine` from the main browser entry point do not apply.
+- A namespace can be opened by one context at a time — the underlying
+  sync access handle is exclusive.
+
 ## License
 
 This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](https://raw.githubusercontent.com/gluesql/gluesql-js/main/LICENSE) file for details.

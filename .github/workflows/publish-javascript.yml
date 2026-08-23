@@ -96,6 +96,7 @@ jobs:
       - name: Build package files
         run: |
           npm run build:web
+          npm run build:opfs
           npm run build:node -- --target x86_64-unknown-linux-gnu
           npx napi artifacts --output-dir artifacts --npm-dir npm
 
