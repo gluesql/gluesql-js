@@ -163,21 +163,21 @@ pub(crate) mod tests {
     use {
         super::RandomAccessFile,
         gluesql_core::error::Result,
-        std::{cell::RefCell, rc::Rc},
+        std::sync::{Arc, Mutex},
     };
 
     #[derive(Clone, Default)]
     pub struct MemoryFile {
-        bytes: Rc<RefCell<Vec<u8>>>,
+        bytes: Arc<Mutex<Vec<u8>>>,
     }
 
     impl RandomAccessFile for MemoryFile {
         fn size(&self) -> Result<u64> {
-            Ok(self.bytes.borrow().len() as u64)
+            Ok(self.bytes.lock().unwrap().len() as u64)
         }
 
         fn read_at(&self, offset: u64, buffer: &mut [u8]) -> Result<usize> {
-            let bytes = self.bytes.borrow();
+            let bytes = self.bytes.lock().unwrap();
             let offset = usize::try_from(offset).unwrap();
 
             if offset >= bytes.len() {
@@ -193,7 +193,7 @@ pub(crate) mod tests {
         fn write_at(&self, offset: u64, bytes: &[u8]) -> Result<()> {
             let offset = usize::try_from(offset).unwrap();
             let end = offset + bytes.len();
-            let mut file = self.bytes.borrow_mut();
+            let mut file = self.bytes.lock().unwrap();
 
             if file.len() < end {
                 file.resize(end, 0);
@@ -206,7 +206,8 @@ pub(crate) mod tests {
 
         fn truncate(&self, len: u64) -> Result<()> {
             self.bytes
-                .borrow_mut()
+                .lock()
+                .unwrap()
                 .resize(usize::try_from(len).unwrap(), 0);
 
             Ok(())

@@ -23,6 +23,7 @@ documentation = "https://docs.rs/gluesql/"
 gluesql-core = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
 gluesql_memory_storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
 gluesql-composite-storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
+gluesql-redb-storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
 gluesql-opfs-storage = { path = "storages/opfs-storage", version = "0.19.0" }
 gluesql-web-storage = { path = "storages/web-storage", version = "0.19.0" }
 test-suite = { package = "gluesql-test-suite", git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }

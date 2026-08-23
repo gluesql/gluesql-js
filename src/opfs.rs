@@ -1,7 +1,7 @@
 use {
     crate::{payload::convert_to_js_value, utils},
     gluesql_core::prelude::Glue as CoreGlue,
-    gluesql_opfs_storage::OpfsStorage,
+    gluesql_opfs_storage::RedbStorage,
     js_sys::Promise,
     wasm_bindgen::prelude::*,
 };
@@ -14,7 +14,7 @@ extern "C" {
 
 #[wasm_bindgen]
 pub struct Glue {
-    inner: CoreGlue<OpfsStorage>,
+    inner: CoreGlue<RedbStorage>,
 }
 
 #[wasm_bindgen]
@@ -22,7 +22,7 @@ pub async fn load(namespace: Option<String>) -> Result<Glue, JsValue> {
     utils::set_panic_hook();
 
     let namespace = namespace.unwrap_or_else(|| "gluesql".to_owned());
-    let storage = OpfsStorage::open(&namespace)
+    let storage = gluesql_opfs_storage::open(&namespace)
         .await
         .map_err(|error| JsValue::from_str(&error.to_string()))?;
 
