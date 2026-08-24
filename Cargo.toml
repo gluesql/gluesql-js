@@ -2,10 +2,12 @@
 resolver = "2"
 members = [
   ".",
+  "storages/opfs-storage",
   "storages/web-storage",
 ]
 default-members = [
   ".",
+  "storages/opfs-storage",
   "storages/web-storage",
 ]
 
@@ -21,6 +23,8 @@ documentation = "https://docs.rs/gluesql/"
 gluesql-core = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
 gluesql_memory_storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
 gluesql-composite-storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
+gluesql-redb-storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
+gluesql-opfs-storage = { path = "storages/opfs-storage", version = "0.19.0" }
 gluesql-web-storage = { path = "storages/web-storage", version = "0.19.0" }
 test-suite = { package = "gluesql-test-suite", git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
 getrandom = { version = "0.2", features = ["js"] }
@@ -59,7 +63,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 nodejs = []
-opfs = []
+opfs = ["dep:gluesql-opfs-storage"]
 
 [dependencies]
 gluesql-core.workspace = true
@@ -71,8 +75,10 @@ serde_json = "1"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gluesql-web-storage.workspace = true
 gluesql-composite-storage.workspace = true
+gluesql-opfs-storage = { workspace = true, optional = true }
 getrandom.workspace = true
 wasm-bindgen = { version = "0.2.100" }
+wasm-bindgen-futures = "0.4.29"
 js-sys = "0.3"
 gloo-utils = { version = "0.1.6", features = ["serde"] }
 # The `console_error_panic_hook` crate provides better debugging of panics by

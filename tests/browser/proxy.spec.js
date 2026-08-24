@@ -79,6 +79,65 @@ test('matches concurrent responses to their requests', async ({ page }) => {
   );
 });
 
+test('isolates data between namespaces', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const first = window.gluesql({ namespace: 'ns-first' });
+    const second = window.gluesql({ namespace: 'ns-second' });
+
+    await first.query(`
+      CREATE TABLE Foo (id INTEGER);
+      INSERT INTO Foo VALUES (1);
+    `);
+
+    const visibleInSecond = await second
+      .query('SELECT * FROM Foo')
+      .then(() => 'resolved')
+      .catch((error) => error.message);
+
+    const [selected] = await first.query('SELECT * FROM Foo');
+
+    return { visibleInSecond, rows: selected.rows };
+  });
+
+  expect(result.visibleInSecond).toContain('table not found: Foo');
+  expect(result.rows).toEqual([{ id: 1 }]);
+});
+
+test('persists large rows across reopen and update churn', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const namespace = 'large-row-churn';
+    const firstValue = 'x'.repeat(9000);
+    const secondValue = 'y'.repeat(9000);
+    let db = window.gluesql({ namespace });
+
+    await db.query(`
+      CREATE TABLE Foo (id INTEGER, value TEXT);
+      INSERT INTO Foo VALUES (1, '${firstValue}');
+      UPDATE Foo SET value = '${secondValue}' WHERE id = 1;
+    `);
+    db.terminate();
+
+    db = window.gluesql({ namespace });
+    const [reopened] = await db.query('SELECT * FROM Foo');
+
+    for (let i = 0; i < 20; i += 1) {
+      const value = (i % 2 === 0 ? 'a' : 'b').repeat(9000);
+      await db.query(`UPDATE Foo SET value = '${value}' WHERE id = 1`);
+    }
+
+    const [selected] = await db.query('SELECT * FROM Foo');
+    db.terminate();
+
+    return {
+      reopenedValue: reopened.rows[0].value,
+      selectedValue: selected.rows[0].value,
+    };
+  });
+
+  expect(result.reopenedValue).toBe('y'.repeat(9000));
+  expect(result.selectedValue).toBe('b'.repeat(9000));
+});
+
 test('rejects in-flight and subsequent queries after terminate', async ({ page }) => {
   const result = await page.evaluate(async () => {
     const db = window.gluesql();
@@ -104,7 +163,9 @@ test('rejects in-flight and subsequent queries after terminate', async ({ page }
 
 test('rejects queries when the worker fails to load', async ({ page }) => {
   const result = await page.evaluate(async () => {
-    const db = window.gluesql(new URL('/does-not-exist.worker.js', location.origin));
+    const db = window.gluesql({
+      workerUrl: new URL('/does-not-exist.worker.js', location.origin),
+    });
 
     const initialFailure = await db
       .query('SELECT 1 AS one')

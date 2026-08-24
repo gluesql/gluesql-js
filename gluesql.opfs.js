@@ -1,5 +1,11 @@
-export function gluesql(workerUrl = new URL('./gluesql.opfs.worker.js', import.meta.url)) {
-  const worker = new Worker(workerUrl, { type: 'module' });
+export function gluesql({ namespace, workerUrl } = {}) {
+  const url = new URL(workerUrl ?? './gluesql.opfs.worker.js', import.meta.url);
+
+  if (namespace !== undefined) {
+    url.searchParams.set('namespace', namespace);
+  }
+
+  const worker = new Worker(url, { type: 'module' });
   const pending = new Map();
   let nextId = 0;
   let terminalError = null;

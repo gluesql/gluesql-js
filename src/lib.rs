@@ -19,4 +19,4 @@ pub use node::Glue;
 pub use wasm::Glue;
 
 #[cfg(all(target_arch = "wasm32", feature = "opfs"))]
-pub use opfs::Glue;
+pub use opfs::{Glue, load};
