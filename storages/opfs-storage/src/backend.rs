@@ -20,10 +20,10 @@ impl<F> fmt::Debug for OpfsBackend<F> {
     }
 }
 
-unsafe impl<F> Send for OpfsBackend<F> {}
-unsafe impl<F> Sync for OpfsBackend<F> {}
-
-impl<F: RandomAccessFile + 'static> StorageBackend for OpfsBackend<F> {
+impl<F> StorageBackend for OpfsBackend<F>
+where
+    F: RandomAccessFile + Send + Sync + 'static,
+{
     fn len(&self) -> Result<u64, io::Error> {
         self.file.size().map_err(|error| io_error(&error))
     }
