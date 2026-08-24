@@ -46,7 +46,6 @@ wildcard_imports = "allow"
 
 [package]
 name = "gluesql-js"
-authors = ["Taehoon Moon <taehoon.moon@outlook.com>"]
 version.workspace = true
 edition.workspace = true
 description.workspace = true
