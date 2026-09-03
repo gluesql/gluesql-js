@@ -176,6 +176,9 @@ Notes:
 - A namespace can be opened by one context at a time — the underlying
   sync access handle is exclusive.
 
+A runnable demo with a persistent visit counter and an interactive SQL runner
+lives in [`examples/web/opfs`](examples/web/opfs/README.md).
+
 ## License
 
 This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](https://raw.githubusercontent.com/gluesql/gluesql-js/main/LICENSE) file for details.

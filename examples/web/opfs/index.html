@@ -6,66 +6,133 @@
     <script type="module">
       import { gluesql } from '../../../gluesql.opfs.js';
 
+      const status = document.querySelector('#status');
+      const results = document.querySelector('#results');
+
       const showError = (message) => {
-        document.querySelector('#status').textContent = `FAILED: ${message}`;
+        status.textContent = `FAILED: ${message}`;
       };
       window.addEventListener('error', (e) => showError(e.message));
       window.addEventListener('unhandledrejection', (e) => showError(String(e.reason)));
 
-      async function run() {
-        const db = gluesql();
+      const renderPayloads = (payloads) => {
+        results.replaceChildren();
 
-        try {
-          const result = await db.query(`
-            DROP TABLE IF EXISTS Foo;
-            CREATE TABLE Foo (id INTEGER, name TEXT);
-            INSERT INTO Foo VALUES (1, 'hello'), (2, 'worker');
-            SELECT * FROM Foo;
-          `);
+        for (const payload of payloads) {
+          if (payload.rows) {
+            const columns = [...new Set(payload.rows.flatMap(Object.keys))];
+            const table = document.createElement('table');
+            const head = table.createTHead().insertRow();
 
-          for (const item of result) {
-            const node = document.createElement('code');
+            for (const column of columns) {
+              const th = document.createElement('th');
+              th.textContent = column;
+              head.append(th);
+            }
 
-            node.textContent = [
-              `type: ${item.type}`,
-              item.affected !== undefined ? `affected: ${item.affected}` : '',
-              item.rows ? `rows: ${JSON.stringify(item.rows)}` : '',
-            ].filter(Boolean).join(' | ');
+            const body = table.createTBody();
+            for (const row of payload.rows) {
+              const tr = body.insertRow();
+              for (const column of columns) {
+                tr.insertCell().textContent = JSON.stringify(row[column]);
+              }
+            }
 
-            document.querySelector('#box').append(node);
+            results.append(table);
+          } else {
+            const line = document.createElement('code');
+            line.textContent = [
+              payload.type,
+              payload.affected !== undefined ? `(affected: ${payload.affected})` : '',
+            ].filter(Boolean).join(' ');
+            results.append(line);
           }
-
-          document.querySelector('#status').textContent = 'OK: query ran inside the worker';
-        } catch (error) {
-          document.querySelector('#status').textContent = `FAILED: ${error.message}`;
         }
+      };
+
+      const db = gluesql({ namespace: 'example' });
+
+      async function main() {
+        await db.query(`
+          CREATE TABLE IF NOT EXISTS Visit (at TEXT);
+        `);
+        await db.query(`INSERT INTO Visit VALUES ('${new Date().toISOString()}');`);
+
+        const [{ rows }] = await db.query('SELECT COUNT(*) AS count FROM Visit;');
+        document.querySelector('#visit-count').textContent = rows[0].count;
+
+        document.querySelector('#run').addEventListener('click', async () => {
+          try {
+            renderPayloads(await db.query(document.querySelector('#sql').value));
+          } catch (error) {
+            results.replaceChildren();
+            const line = document.createElement('code');
+            line.textContent = `Error: ${error.message}`;
+            line.className = 'error';
+            results.append(line);
+          }
+        });
+
+        status.textContent = 'ready';
       }
 
-      run();
+      main().catch((error) => showError(error.message));
     </script>
     <style>
-      body { padding: 0; margin: 0; }
-      #box {
-        display: flex;
-        flex-direction: column;
-        padding: 20px;
+      body {
+        margin: 0;
+        padding: 24px;
         background-color: #222;
         color: white;
-        min-height: 100vh;
+        font-family: monospace;
+      }
+      h1 { font-size: 1.2rem; }
+      #status { color: #8f8; }
+      #visits { margin: 16px 0; }
+      #visit-count { font-weight: bold; }
+      textarea {
+        width: 100%;
+        max-width: 640px;
+        height: 96px;
+        background: #111;
+        color: white;
+        font-family: monospace;
+        border: 1px solid #555;
+        padding: 8px;
         box-sizing: border-box;
       }
-      code {
-        margin: 5px;
-        padding: 10px;
+      button {
+        display: block;
+        margin: 8px 0 16px;
+        padding: 6px 16px;
+        background: #333;
+        color: white;
+        border: 1px solid #777;
         font-family: monospace;
-        border: 1px solid white;
+        cursor: pointer;
       }
-      #status { font-family: monospace; padding: 10px 5px; }
+      button:hover { background: #444; }
+      table { border-collapse: collapse; margin: 8px 0; }
+      th, td { border: 1px solid #555; padding: 4px 10px; text-align: left; }
+      th { background: #333; }
+      code { display: block; padding: 4px 0; }
+      .error { color: #f88; }
     </style>
   </head>
   <body>
-    <div id="box">
-      <div id="status">loading...</div>
-    </div>
+    <h1>GlueSQL OPFS example</h1>
+    <div id="status">loading...</div>
+
+    <p id="visits">
+      This page has been loaded <span id="visit-count">-</span> time(s).
+      The counter lives in a database file under OPFS — reload the page,
+      restart the browser, it survives.
+    </p>
+
+    <textarea id="sql" spellcheck="false">
+SELECT * FROM Visit ORDER BY at DESC;</textarea>
+    <button id="run">Run</button>
+
+    <div id="results"></div>
   </body>
 </html>
