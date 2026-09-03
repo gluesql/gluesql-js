@@ -131,7 +131,7 @@ jobs:
         run: wasm-pack test --headless --firefox . -p gluesql-js --features opfs --test opfs
 
   js_proxy_tests:
-    name: Worker proxy tests
+    name: Worker proxy and example tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -149,13 +149,16 @@ jobs:
         with:
           version: "v0.13.1"
 
+      - name: Build web package
+        run: npm run build:web
+
       - name: Build OPFS package
         run: npm run build:opfs
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run worker proxy tests
+      - name: Run worker proxy and example tests
         run: npm run test:browser
 
   js_storage_tests:
