@@ -484,8 +484,9 @@ dependencies = [
 
 [[package]]
 name = "gluesql-composite-storage"
-version = "0.19.0"
-source = "git+https://github.com/gluesql/gluesql.git?rev=aae2a135146be08fb99f7b97782a58ca1cb10412#aae2a135146be08fb99f7b97782a58ca1cb10412"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05231f43c6ee489e8a1e73eb2c62379c3b623c21d20fb8143c0c6630e8ab6e1f"
 dependencies = [
  "gluesql-core",
  "serde",
@@ -493,8 +494,9 @@ dependencies = [
 
 [[package]]
 name = "gluesql-core"
-version = "0.19.0"
-source = "git+https://github.com/gluesql/gluesql.git?rev=aae2a135146be08fb99f7b97782a58ca1cb10412#aae2a135146be08fb99f7b97782a58ca1cb10412"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7156a8881f2d54bfbc0c49b8091c179d59e88c940075b4cf8011c70fdda5087d"
 dependencies = [
  "bigdecimal",
  "cfg-if",
@@ -518,7 +520,7 @@ dependencies = [
 
 [[package]]
 name = "gluesql-js"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.17",
@@ -542,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "gluesql-opfs-storage"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "getrandom 0.2.17",
  "gluesql-core",
@@ -556,8 +558,9 @@ dependencies = [
 
 [[package]]
 name = "gluesql-redb-storage"
-version = "0.19.0"
-source = "git+https://github.com/gluesql/gluesql.git?rev=aae2a135146be08fb99f7b97782a58ca1cb10412#aae2a135146be08fb99f7b97782a58ca1cb10412"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27b4d9c478f3c414eeeb0f6b082f63f32deed76b54f191fac6544cdbc459d05c"
 dependencies = [
  "bincode",
  "gluesql-core",
@@ -569,8 +572,9 @@ dependencies = [
 
 [[package]]
 name = "gluesql-test-suite"
-version = "0.19.0"
-source = "git+https://github.com/gluesql/gluesql.git?rev=aae2a135146be08fb99f7b97782a58ca1cb10412#aae2a135146be08fb99f7b97782a58ca1cb10412"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "084e151cf71282b4226950ab214e7ec1830c6287c84d32e08b61b4a28cf97dde"
 dependencies = [
  "bigdecimal",
  "chrono",
@@ -587,7 +591,7 @@ dependencies = [
 
 [[package]]
 name = "gluesql-web-storage"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "getrandom 0.2.17",
  "gloo-storage",
@@ -601,8 +605,9 @@ dependencies = [
 
 [[package]]
 name = "gluesql_memory_storage"
-version = "0.19.0"
-source = "git+https://github.com/gluesql/gluesql.git?rev=aae2a135146be08fb99f7b97782a58ca1cb10412#aae2a135146be08fb99f7b97782a58ca1cb10412"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6882603ba8d6292e8b64cd42ad2b246cd144ecf880de4bc48173c59c3b22813b"
 dependencies = [
  "gluesql-core",
  "serde",

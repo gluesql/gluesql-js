@@ -12,7 +12,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.19.0"
+version = "0.20.0"
 edition = "2024"
 description = "GlueSQL - Open source SQL database engine fully written in Rust with pure functional execution layer, easily swappable storage and web assembly support!"
 license = "Apache-2.0"
@@ -20,13 +20,13 @@ repository = "https://github.com/gluesql/gluesql-js"
 documentation = "https://docs.rs/gluesql/"
 
 [workspace.dependencies]
-gluesql-core = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
-gluesql_memory_storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
-gluesql-composite-storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
-gluesql-redb-storage = { git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
-gluesql-opfs-storage = { path = "storages/opfs-storage", version = "0.19.0" }
-gluesql-web-storage = { path = "storages/web-storage", version = "0.19.0" }
-test-suite = { package = "gluesql-test-suite", git = "https://github.com/gluesql/gluesql.git", rev = "aae2a135146be08fb99f7b97782a58ca1cb10412" }
+gluesql-core = "0.20.0"
+gluesql_memory_storage = "0.20.0"
+gluesql-composite-storage = "0.20.0"
+gluesql-redb-storage = "0.20.0"
+gluesql-opfs-storage = { path = "storages/opfs-storage", version = "0.20.0" }
+gluesql-web-storage = { path = "storages/web-storage", version = "0.20.0" }
+test-suite = { package = "gluesql-test-suite", version = "0.20.0" }
 getrandom = { version = "0.2", features = ["js"] }
 
 [workspace.lints.clippy]
