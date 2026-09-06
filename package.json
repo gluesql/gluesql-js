@@ -12,7 +12,8 @@
     "./opfs": "./gluesql.opfs.js",
     "./gluesql.js": "./gluesql.js",
     "./gluesql.rollup.js": "./gluesql.rollup.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./opfs/shared": "./gluesql.opfs.shared.js"
   },
   "scripts": {
     "build": "npm run build:web && npm run build:node",
@@ -55,6 +56,7 @@
     "gluesql.node.js",
     "gluesql.opfs.js",
     "gluesql.opfs.worker.js",
+    "gluesql.opfs.shared.js",
     "gluesql.rollup.js",
     "package.json",
     "README.md"
