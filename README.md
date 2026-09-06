@@ -6,15 +6,39 @@
 [![Chat](https://img.shields.io/discord/780298017940176946)](https://discord.gg/C6TDEgzDzY)
 [![Coverage Status](https://coveralls.io/repos/github/gluesql/gluesql/badge.svg?branch=main)](https://coveralls.io/github/gluesql/gluesql?branch=main)
 
-GlueSQL.js is a SQL database for web browsers and Node.js. It works as an embedded database and entirely runs in the browser.
-GlueSQL.js supports in-memory, localStorage, and sessionStorage backends in browsers.
+GlueSQL.js turns the browser into a SQL database. Real SQL — tables, joins,
+aggregations — running inside the page: no server, no driver, no signup.
+One `<script>` tag is a working database:
 
+```html
+<script type="module">
+  import { gluesql } from 'https://cdn.jsdelivr.net/npm/gluesql/gluesql.js';
 
-Learn more at the **<https://gluesql.org/docs>**
+  const db = await gluesql();
+  await db.query('CREATE TABLE Todo (id INTEGER, task TEXT);');
+</script>
+```
 
-* [Getting Started - JavaScript](https://gluesql.org/docs/dev/getting-started/javascript-web)
-* [Getting Started - Node.js](https://gluesql.org/docs/dev/getting-started/nodejs)
-* [SQL Syntax](https://gluesql.org/docs/dev/sql-syntax/intro)
+- **Zero backend** — ship local-first apps, prototypes, and internal tools
+  with no infrastructure at all.
+- **Offline & private by design** — every query runs on the device, and the
+  data never leaves it.
+- **Persistent** — OPFS-backed storage survives reloads and full browser
+  restarts.
+- **Multi-tab safe** — all tabs share one consistent database; tab crashes
+  are handled for you.
+- **Node.js too** — the same SQL runs in your tests and tooling.
+
+## Pick the storage that matches your data
+
+One SQL interface, four places to keep data:
+
+| Your data is… | Keep it in | Import |
+| --- | --- | --- |
+| Scratch state & caches | Memory | `gluesql` (default) |
+| Small settings that should stick | Web Storage | `gluesql` + `ENGINE = localStorage` |
+| Real data — must survive restarts | OPFS file | `gluesql/opfs` |
+| Real data, opened in many tabs | OPFS file, shared | `gluesql/opfs/shared` |
 
 ## Installation
 
@@ -33,7 +57,36 @@ npm install gluesql
 import { gluesql } from 'https://cdn.jsdelivr.net/npm/gluesql/gluesql.js';
 ```
 
-## Usage
+## Add it to your app
+
+There is no schema server, migration daemon, or driver setup — adding GlueSQL
+is adding one import. Pick the recipe that matches your stack:
+
+**With a bundler (webpack, Vite, Rollup, …)** — install the package and
+import it; the WASM engine ships inside:
+
+```javascript
+import { gluesql } from 'gluesql';
+
+const db = await gluesql();
+```
+
+Working configurations live in
+[`examples/web/webpack`](examples/web/webpack) and
+[`examples/web/rollup`](examples/web/rollup) (Rollup uses the
+`gluesql/gluesql.rollup` build).
+
+**No build step at all** — the `<script type="module">` snippet at the top of
+this page is the entire integration; see
+[`examples/web/module`](examples/web/module) for a complete page.
+
+**Node.js** — same package, same API:
+
+```javascript
+const { gluesql } = require('gluesql');
+```
+
+## Your first query
 
 ```javascript
 import { gluesql } from 'gluesql';
@@ -50,17 +103,12 @@ const [{ rows }] = await db.query('SELECT * FROM User;');
 console.log(rows);
 ```
 
-## Browser Storage Engines
+## Mix storage engines in one query
 
-GlueSQL.js includes three browser storage engines:
-
-| Engine | Persistence | Notes |
-| --- | --- | --- |
-| `memory` | In-memory only | Default engine. Data is cleared when the page is reloaded. |
-| `localStorage` | Persistent per origin | Uses the browser `localStorage` API. |
-| `sessionStorage` | Persistent for the browser tab session | Uses the browser `sessionStorage` API. |
-
-Specify the storage engine with the `ENGINE` clause when creating a table:
+In the main browser entry point, each table declares where it lives with the
+`ENGINE` clause — and tables from different engines join like any others. Keep
+a session cache in memory, user preferences in `localStorage`, and query them
+together:
 
 ```javascript
 import { gluesql } from 'gluesql';
@@ -68,83 +116,40 @@ import { gluesql } from 'gluesql';
 const db = await gluesql();
 
 await db.query(`
-  CREATE TABLE Mem (id INTEGER) ENGINE = memory;
-  CREATE TABLE Loc (id INTEGER) ENGINE = localStorage;
-  CREATE TABLE Ses (id INTEGER) ENGINE = sessionStorage;
-`);
-```
-
-The browser package can query tables backed by different engines through the same SQL interface:
-
-```javascript
-const db = await gluesql();
-
-await db.query(`
-  CREATE TABLE Mem (id INTEGER) ENGINE = memory;
-  CREATE TABLE Loc (id INTEGER) ENGINE = localStorage;
-  CREATE TABLE Ses (id INTEGER) ENGINE = sessionStorage;
+  CREATE TABLE Cache (id INTEGER, value TEXT) ENGINE = memory;
+  CREATE TABLE Pref (id INTEGER, theme TEXT) ENGINE = localStorage;
+  CREATE TABLE Draft (id INTEGER, body TEXT) ENGINE = sessionStorage;
 
   SELECT *
-  FROM Mem
-  JOIN Loc
-  JOIN Ses;
+  FROM Cache
+  JOIN Pref
+  JOIN Draft;
 `);
 ```
 
-### Memory
+What each engine gives your users:
 
-`memory` is the default storage engine. It is available in browsers and Node.js.
+- `memory` — fastest, gone on reload. The default engine, also available in
+  Node.js.
+- `localStorage` — survives reloads and restarts, scoped to the origin.
+- `sessionStorage` — survives reloads within one tab session, then cleans up
+  after itself.
 
-```javascript
-const db = await gluesql();
+When the `ENGINE` clause is omitted, the current default engine (`memory`
+initially) is used; change it with `db.setDefaultEngine('localStorage')`.
 
-await db.query(`
-  CREATE TABLE User (id INTEGER, name TEXT) ENGINE = memory;
-`);
-```
+Web Storage is right for lightweight structured data. Browsers cap it at a
+few MB per origin — for anything bigger, use the OPFS entry point below.
 
-When the `ENGINE` clause is omitted, GlueSQL.js uses the current default engine. The initial default engine is `memory`.
+## Data that outlives the tab: `gluesql/opfs`
 
-### Web Storage
-
-`localStorage` and `sessionStorage` are available in browsers and use the browser Web Storage APIs.
-
-```javascript
-const db = await gluesql();
-
-await db.query(`
-  CREATE TABLE LocalCache (id INTEGER, value TEXT) ENGINE = localStorage;
-  CREATE TABLE SessionCache (id INTEGER, value TEXT) ENGINE = sessionStorage;
-`);
-```
-
-- `localStorage` keeps data for the browser origin until it is explicitly cleared.
-- `sessionStorage` keeps data for the current browser tab session.
-
-Web Storage is useful for lightweight structured data. Browsers apply storage quotas, commonly around several MB per origin, so avoid using `localStorage` or `sessionStorage` for large datasets.
-
-### Changing The Default Engine
-
-The default engine is `memory`. In browsers, you can change it after creating the database:
-
-```javascript
-const db = await gluesql();
-
-db.setDefaultEngine('localStorage');
-
-await db.query(`
-  CREATE TABLE User (id INTEGER, name TEXT);
-`);
-```
-
-Node.js currently supports only non-persistent memory storage.
-
-## OPFS Entry Point
-
-`gluesql/opfs` is a separate worker-based entry point backed by the
-[Origin Private File System](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).
-GlueSQL runs inside a Dedicated Worker and stores data in a file under the
-OPFS root, so data survives page reloads and browser restarts.
+For an app's real data — the notes, records, and documents your users expect
+to find again tomorrow — Web Storage is too small and memory is too
+ephemeral. `gluesql/opfs` stores the database as a file in the
+[Origin Private File System](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system):
+data survives page reloads and full browser restarts, and capacity follows
+the browser's origin quota (typically gigabytes, not megabytes). GlueSQL runs
+in a Dedicated Worker, so queries stay off your UI thread.
 
 ```javascript
 import { gluesql } from 'gluesql/opfs';
@@ -160,10 +165,10 @@ await db.query(`
 const [result] = await db.query('SELECT * FROM User');
 ```
 
-Options:
+Give each concern its own database with namespaces — separate files, separate
+lifecycles:
 
 ```javascript
-// Separate databases per namespace (each namespace is its own OPFS file)
 const app1 = gluesql({ namespace: 'app1' });
 const app2 = gluesql({ namespace: 'app2' });
 ```
@@ -174,19 +179,32 @@ Notes:
 - This entry point provides OPFS as its only storage; the `ENGINE` clause
   and `setDefaultEngine` from the main browser entry point do not apply.
 - A namespace can be opened by one context at a time — the underlying
-  sync access handle is exclusive.
+  sync access handle is exclusive. If your users open multiple tabs, use
+  `gluesql/opfs/shared` below.
+
+Applying it to a project: the package ships the worker and WASM prebuilt, and
+the entry point locates them relative to wherever the module itself is served
+— no extra configuration when the package files are served from your own
+origin (a dev server exposing `node_modules`, or the files copied into your
+static assets). Browsers require workers to be same-origin, so the OPFS entry
+points cannot be loaded straight from a third-party CDN; if your setup places
+the worker elsewhere, point at it explicitly (the worker loads its WASM from
+a `dist_opfs/` directory next to itself, so copy that along):
+
+```javascript
+const db = gluesql({ workerUrl: '/assets/gluesql.opfs.worker.js' });
+```
 
 A runnable demo with a persistent visit counter and an interactive SQL runner
-lives in [`examples/web/opfs`](examples/web/opfs/README.md).
+lives in [`examples/web/opfs`](examples/web/opfs/README.md) — serve the
+repository over `localhost` and open the page, no build tooling required.
 
-### Multi-tab access: `gluesql/opfs/shared` (experimental)
+### Every tab, one database: `gluesql/opfs/shared` (experimental)
 
-`gluesql/opfs/shared` lets multiple tabs of the same origin query one OPFS
-namespace. Tabs compete for a [Web Lock](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API)
-per namespace; the holder is the leader — only it spawns the database worker
-and holds the exclusive sync access handle — and tabs exchange queries and
-results over a `BroadcastChannel`. (A tab must lead because sync access
-handles exist only in Dedicated Workers.)
+Real users open your app in three tabs and expect them to agree. The OPFS
+handle, however, is exclusive — only one context can own the file. Rather
+than each tab failing to open the database (or you building cross-tab
+coordination yourself), `gluesql/opfs/shared` does the coordination:
 
 ```javascript
 import { gluesql } from 'gluesql/opfs/shared';
@@ -196,21 +214,30 @@ const db = gluesql({ namespace: 'app' });
 await db.query(`CREATE TABLE IF NOT EXISTS Log (at TEXT);`);
 ```
 
-Failover: when the leader tab closes, crashes, or is frozen, the browser
-releases its lock — no heartbeat needed — and the next tab in line takes over
-the OPFS handle with retry/backoff, then announces itself. Queries that never
-reached the lost leader are resent automatically; queries the lost leader had
-already accepted are rejected with a `leader lost` error instead of being
-replayed — no one can know whether they were applied, so replaying could
-double-apply writes.
+Every tab calls `query()` as if it owned the database. Under the hood, tabs
+elect a leader with a per-namespace
+[Web Lock](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API);
+only the leader spawns the database worker and holds the OPFS handle, and the
+other tabs' queries reach it over a `BroadcastChannel`. A write committed in
+one tab is immediately visible to queries from every other tab — one
+database, not three copies drifting apart.
 
-Known side effects and caveats:
+**When a tab dies, your app keeps working.** If the leader tab closes,
+crashes, or is frozen by the browser, the browser releases its lock and the
+next tab takes over automatically — queries issued in the meantime wait and
+are delivered to the new leader. Failover is not free of edge cases, though,
+and your app should know about one:
 
-- **In-flight ambiguity on failover** — a query rejected with `leader lost`
-  may or may not have been applied. Retry idempotent reads freely; guard
-  non-idempotent writes at the application level. In the instant of a hard
-  crash an acceptance message can theoretically be lost, letting a resend
-  replay a query the leader had just started — the same guard applies.
+- A query that was already handed to the lost leader is rejected with a
+  `leader lost` error, because no one can know whether it was applied —
+  replaying it blindly could double-apply a write. Retry idempotent reads
+  freely; guard non-idempotent writes at the application level. (In the
+  instant of a hard crash an acceptance message can theoretically be lost,
+  letting an automatic resend replay a query the leader had just started —
+  the same guard applies.)
+
+Remaining caveats, so you are not surprised in production:
+
 - **Failover latency** — the lock is released as soon as the leader dies, but
   the new leader may need retry/backoff while the old OPFS handle is
   released.
@@ -227,6 +254,19 @@ Known side effects and caveats:
   namespace, so mixed app versions on one origin share them; keep the
   message protocol stable.
 
+## The same SQL in Node.js
+
+The `gluesql` package exposes the same API in Node.js, so schema and queries
+written for the browser run unchanged in tests and scripts. Node.js currently
+supports only non-persistent memory storage.
+
 ## License
 
 This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](https://raw.githubusercontent.com/gluesql/gluesql-js/main/LICENSE) file for details.
+
+---
+
+Docs: **<https://gluesql.org/docs>** —
+[Getting Started (JavaScript)](https://gluesql.org/docs/dev/getting-started/javascript-web) ·
+[Getting Started (Node.js)](https://gluesql.org/docs/dev/getting-started/nodejs) ·
+[SQL Syntax](https://gluesql.org/docs/dev/sql-syntax/intro)
