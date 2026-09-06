@@ -179,6 +179,54 @@ Notes:
 A runnable demo with a persistent visit counter and an interactive SQL runner
 lives in [`examples/web/opfs`](examples/web/opfs/README.md).
 
+### Multi-tab access: `gluesql/opfs/shared` (experimental)
+
+`gluesql/opfs/shared` lets multiple tabs of the same origin query one OPFS
+namespace. Tabs compete for a [Web Lock](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API)
+per namespace; the holder is the leader — only it spawns the database worker
+and holds the exclusive sync access handle — and tabs exchange queries and
+results over a `BroadcastChannel`. (A tab must lead because sync access
+handles exist only in Dedicated Workers.)
+
+```javascript
+import { gluesql } from 'gluesql/opfs/shared';
+
+const db = gluesql({ namespace: 'app' });
+
+await db.query(`CREATE TABLE IF NOT EXISTS Log (at TEXT);`);
+```
+
+Failover: when the leader tab closes, crashes, or is frozen, the browser
+releases its lock — no heartbeat needed — and the next tab in line takes over
+the OPFS handle with retry/backoff, then announces itself. Queries that never
+reached the lost leader are resent automatically; queries the lost leader had
+already accepted are rejected with a `leader lost` error instead of being
+replayed — no one can know whether they were applied, so replaying could
+double-apply writes.
+
+Known side effects and caveats:
+
+- **In-flight ambiguity on failover** — a query rejected with `leader lost`
+  may or may not have been applied. Retry idempotent reads freely; guard
+  non-idempotent writes at the application level. In the instant of a hard
+  crash an acceptance message can theoretically be lost, letting a resend
+  replay a query the leader had just started — the same guard applies.
+- **Failover latency** — the lock is released as soon as the leader dies, but
+  the new leader may need retry/backoff while the old OPFS handle is
+  released.
+- **Back/forward cache** — leaving a page terminates its connection so the
+  handle can move on; a page restored from bfcache must create a new
+  `gluesql()` instance.
+- **No Web Locks or BroadcastChannel, no multi-tab** — where either API is
+  unavailable, this entry point silently falls back to single-context
+  `gluesql/opfs` behavior, including its one-tab limit.
+- **Leader tab does the work** — queries from every tab execute in whichever
+  tab currently leads; heavy queries consume that tab's CPU. Results are
+  broadcast, so every tab on the namespace pays a copy of each result.
+- **One protocol per origin** — the lock and channel are keyed only by
+  namespace, so mixed app versions on one origin share them; keep the
+  message protocol stable.
+
 ## License
 
 This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](https://raw.githubusercontent.com/gluesql/gluesql-js/main/LICENSE) file for details.
