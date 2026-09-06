@@ -58,6 +58,7 @@
     "gluesql.opfs.worker.js",
     "gluesql.opfs.shared.js",
     "gluesql.rollup.js",
+    "gluesql_js.*.node",
     "package.json",
     "README.md"
   ],
@@ -70,12 +71,6 @@
       "aarch64-apple-darwin",
       "x86_64-pc-windows-msvc"
     ]
-  },
-  "optionalDependencies": {
-    "@gluesql/native-darwin-arm64": "0.20.0",
-    "@gluesql/native-darwin-x64": "0.20.0",
-    "@gluesql/native-linux-x64-gnu": "0.20.0",
-    "@gluesql/native-win32-x64-msvc": "0.20.0"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.7.1",
