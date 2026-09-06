@@ -257,8 +257,52 @@ Remaining caveats, so you are not surprised in production:
 ## The same SQL in Node.js
 
 The `gluesql` package exposes the same API in Node.js, so schema and queries
-written for the browser run unchanged in tests and scripts. Node.js currently
-supports only non-persistent memory storage.
+written for the browser run unchanged in tests and scripts. In Node.js you also
+register the engines yourself: each name you register is a storage backend, and
+it is what the `ENGINE` clause of `CREATE TABLE` refers to.
+
+| Your data is… | Keep it in | `storage` |
+| --- | --- | --- |
+| Scratch state & caches | Memory | `memory` (default) |
+
+```javascript
+const { gluesql } = require('gluesql');
+
+// `memory` is always registered and starts out as the default engine.
+const db = gluesql();
+
+// Register engines up front...
+const scratch = gluesql({
+  engines: { scratch: { storage: 'memory' } },
+  defaultEngine: 'scratch',
+});
+
+// ...or at any time later.
+db.addEngine('scratch', { storage: 'memory' });
+
+db.listEngines(); // ['memory', 'scratch']
+db.defaultEngine(); // 'memory'
+db.removeEngine('scratch');
+```
+
+Tables of different engines are queried together, exactly like the browser
+build mixes `memory` with Web Storage:
+
+```javascript
+await db.query(`
+  CREATE TABLE Cache (id INTEGER) ENGINE = memory;
+  CREATE TABLE Docs (id INTEGER) ENGINE = scratch;
+
+  SELECT * FROM Cache JOIN Docs;
+`);
+```
+
+`removeEngine` only unregisters an engine; the data it owns is left untouched,
+so registering the same backend again brings its tables back. The default
+engine cannot be removed - point `setDefaultEngine` at another engine first.
+
+Unknown keys in an engine config are rejected, so a misspelled option fails
+loudly instead of quietly falling back to a default.
 
 ## License
 
