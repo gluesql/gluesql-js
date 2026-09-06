@@ -98,22 +98,24 @@ jobs:
           npm run build:web
           npm run build:opfs
           npm run build:node -- --target x86_64-unknown-linux-gnu
-          npx napi artifacts --output-dir artifacts --npm-dir npm
+
+      - name: Bundle native artifacts
+        shell: bash
+        run: |
+          for target in \
+            darwin-arm64 \
+            darwin-x64 \
+            linux-x64-gnu \
+            win32-x64-msvc; do
+            artifact="artifacts/gluesql_js.${target}.node"
+            test -f "$artifact"
+            cp "$artifact" .
+          done
 
       - name: Verify package contents
         if: github.event.inputs.dry_run == 'true'
-        shell: bash
-        run: |
-          npx napi pre-publish --npm-dir npm --skip-optional-publish
-          for package_dir in npm/*; do
-            (cd "$package_dir" && npm publish --provenance --dry-run)
-          done
-          npm publish --provenance --dry-run
+        run: npm publish --provenance --dry-run
 
-      - name: Publish packages
+      - name: Publish package
         if: github.event.inputs.dry_run != 'true'
-        env:
-          NPM_CONFIG_PROVENANCE: "true"
-        run: |
-          npx napi pre-publish --npm-dir npm
-          npm publish --provenance
+        run: npm publish --provenance
