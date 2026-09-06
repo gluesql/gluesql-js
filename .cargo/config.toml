@@ -1,0 +1,6 @@
+# The published .node ships one artifact per platform and nothing reads its
+# symbol table back, so drop it. This cannot live in `[profile.release]`:
+# stripping a wasm module also removes the `target_features` section, and
+# `wasm-opt` then rejects the bulk memory operations rustc emits.
+[target.'cfg(not(target_arch = "wasm32"))']
+rustflags = ["-C", "strip=symbols"]
