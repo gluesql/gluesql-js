@@ -528,6 +528,7 @@ dependencies = [
  "gluesql-composite-storage",
  "gluesql-core",
  "gluesql-opfs-storage",
+ "gluesql-redb-storage",
  "gluesql-test-suite",
  "gluesql-web-storage",
  "gluesql_memory_storage",

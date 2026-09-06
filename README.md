@@ -264,6 +264,7 @@ it is what the `ENGINE` clause of `CREATE TABLE` refers to.
 | Your data is… | Keep it in | `storage` |
 | --- | --- | --- |
 | Scratch state & caches | Memory | `memory` (default) |
+| Real data that must survive restarts | One redb file | `redb` |
 
 ```javascript
 const { gluesql } = require('gluesql');
@@ -303,6 +304,26 @@ engine cannot be removed - point `setDefaultEngine` at another engine first.
 
 Unknown keys in an engine config are rejected, so a misspelled option fails
 loudly instead of quietly falling back to a default.
+
+### `redb`
+
+`redb` is an embedded key-value store kept in a single file, and the engine to
+reach for when data has to survive restarts.
+
+```javascript
+const db = gluesql({
+  engines: { local: { storage: 'redb', path: './gluesql.db' } },
+  defaultEngine: 'local',
+});
+```
+
+The file is locked exclusively while the engine is registered, so one `path`
+cannot be opened twice at a time. `removeEngine` releases it:
+
+```javascript
+db.setDefaultEngine('memory');
+db.removeEngine('local');
+```
 
 ## License
 
