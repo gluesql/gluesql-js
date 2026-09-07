@@ -20,7 +20,8 @@
     "build:web": "wasm-pack build --no-pack --target web --no-typescript --release --out-dir ./dist_web",
     "build:opfs": "wasm-pack build --no-pack --target web --no-typescript --release --out-dir ./dist_opfs -- --features opfs",
     "build:node": "napi build --release --platform --js gluesql.native.js --dts gluesql.native.d.ts --no-default-features --features nodejs",
-    "test:node": "node tests/nodejs.js",
+    "build:node:full": "napi build --release --platform --js gluesql.native.js --dts gluesql.native.d.ts --no-default-features --features full",
+    "test:node": "node --test \"tests/node/*.test.js\"",
     "test:browser": "playwright test"
   },
   "repository": {
@@ -42,6 +43,9 @@
     "url": "https://github.com/gluesql/gluesql-js/issues"
   },
   "homepage": "https://gluesql.org/docs",
+  "engines": {
+    "node": ">=22"
+  },
   "publishConfig": {
     "access": "public"
   },
