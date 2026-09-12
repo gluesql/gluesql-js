@@ -1,7 +1,8 @@
 const assert = require('node:assert/strict');
-const { gluesql } = require('../gluesql.node.js');
+const { test } = require('node:test');
+const { gluesql } = require('../../gluesql.node.js');
 
-async function main() {
+test('executes multiple statements in one query', async () => {
   const db = gluesql();
 
   assert.deepEqual(
@@ -24,11 +25,13 @@ async function main() {
       ],
     },
   ]);
+});
+
+test('rejects with the storage error message', async () => {
+  const db = gluesql();
 
   await assert.rejects(
     () => db.query('SELECT * FROM Missing'),
     /fetch: table not found: Missing/,
   );
-}
-
-main();
+});
