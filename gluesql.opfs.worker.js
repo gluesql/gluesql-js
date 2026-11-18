@@ -11,13 +11,23 @@ const ready = init()
     glue = instance;
   });
 
+// Requests are `{ id, sql }` for queries, `{ id, op: 'dump', options }`, or
+// `{ id, op: 'restore', sql }`.
 self.onmessage = async ({ data }) => {
-  const { id, sql } = data;
+  const { id, op, sql, options } = data;
 
   try {
     await ready;
 
-    const result = await glue.query(sql);
+    let result;
+
+    if (op === 'dump') {
+      result = await glue.dump(options);
+    } else if (op === 'restore') {
+      result = await glue.restore(sql);
+    } else {
+      result = await glue.query(sql);
+    }
 
     self.postMessage({ id, result });
   } catch (error) {

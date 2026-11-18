@@ -2,7 +2,7 @@ mod engines;
 mod storage;
 
 use {
-    crate::payload::convert,
+    crate::{dump, payload::convert},
     engines::Engines,
     gluesql_core::prelude::Glue as CoreGlue,
     napi::{Error, Result},
@@ -79,6 +79,17 @@ impl Glue {
         let payloads = self.inner.execute(sql).map_err(to_napi_error)?;
 
         serde_json::to_string(&convert(payloads)).map_err(to_napi_error)
+    }
+
+    #[napi]
+    pub fn dump(&mut self, with_schema: bool) -> Result<String> {
+        dump::dump(&mut self.inner.storage, with_schema).map_err(to_napi_error)
+    }
+
+    #[napi]
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn restore(&mut self, sql: String) -> Result<()> {
+        dump::restore_or_drop_created(&mut self.inner, &sql).map_err(to_napi_error)
     }
 }
 

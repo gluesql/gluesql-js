@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import dumpCases from '../dump-cases.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/tests/browser/fixtures/blank.html');
@@ -182,4 +183,77 @@ test('rejects queries when the worker fails to load', async ({ page }) => {
 
   expect(result.initialFailure).toBe('rejected');
   expect(result.afterFailure).toBe('rejected');
+});
+
+test('dumps a database and restores it into another namespace', async ({ page }) => {
+  const result = await page.evaluate(async (setup) => {
+    const allRows = async (db) => {
+      const [{ tables }] = await db.query('SHOW TABLES');
+      const rows = {};
+
+      for (const table of tables) {
+        [{ rows: rows[table] }] = await db.query(`SELECT * FROM "${table}"`);
+      }
+
+      return rows;
+    };
+
+    const source = window.gluesql({ namespace: 'dump-source' });
+
+    for (const sql of setup) {
+      await source.query(sql);
+    }
+
+    const dumped = await source.dump();
+    const data = await source.dump({ schema: false });
+
+    const target = window.gluesql({ namespace: 'dump-target' });
+    const restored = await target.restore(dumped);
+
+    return {
+      restored,
+      data,
+      stable: (await target.dump()) === dumped,
+      sourceRows: await allRows(source),
+      targetRows: await allRows(target),
+    };
+  }, dumpCases.map(({ sql }) => sql));
+
+  expect(result.restored).toBeUndefined();
+  expect(result.data).not.toContain('CREATE TABLE');
+  expect(result.data).toContain(
+    'INSERT INTO "Bool" ("id", "v") VALUES (0, TRUE), (1, FALSE), (999, NULL);',
+  );
+  expect(result.stable).toBe(true);
+  expect(Object.keys(result.targetRows).length).toBeGreaterThanOrEqual(
+    dumpCases.length,
+  );
+  expect(result.targetRows).toEqual(result.sourceRows);
+});
+
+test('a failed restore leaves the database as it was', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const db = window.gluesql({ namespace: 'restore-failure' });
+
+    await db.query(`
+      CREATE TABLE Keep (id INTEGER);
+      INSERT INTO Keep VALUES (1);
+    `);
+
+    const before = await db.dump();
+
+    const restoreError = await db
+      .restore(`
+        CREATE TABLE Added (id INTEGER);
+        INSERT INTO Added VALUES (1);
+        CREATE TABLE Keep (id INTEGER);
+      `)
+      .then(() => 'resolved')
+      .catch((error) => error.message);
+
+    return { restoreError, unchanged: (await db.dump()) === before };
+  });
+
+  expect(result.restoreError).toContain('table already exists: Keep');
+  expect(result.unchanged).toBe(true);
 });

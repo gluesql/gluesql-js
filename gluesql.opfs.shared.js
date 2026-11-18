@@ -1,6 +1,6 @@
 // Multi-tab OPFS entry point: tabs sharing a namespace elect a leader with
 // the Web Locks API — the lock holder spawns `gluesql.opfs.worker.js` and
-// owns the exclusive sync access handle — and exchange queries over a
+// owns the exclusive sync access handle — and exchange requests over a
 // BroadcastChannel. The browser releases the lock when the leader dies, so
 // failover needs no heartbeat.
 
@@ -71,7 +71,7 @@ export function gluesql({ namespace, workerUrl } = {}) {
   const channel = new BroadcastChannel(scope);
   const tabId = crypto.randomUUID();
 
-  const pending = new Map(); // id -> { resolve, reject, sql, acceptedBy }
+  const pending = new Map(); // id -> { resolve, reject, request, acceptedBy }
   let nextSeq = 0;
   let terminalError = null;
   let closed = false;
@@ -147,7 +147,7 @@ export function gluesql({ namespace, workerUrl } = {}) {
         for (const [id, request] of pending) {
           if (request.acceptedBy === null) {
             // never reached a leader — safe to resend, the leader dedupes
-            submit({ type: 'query', id, sql: request.sql });
+            submit({ ...request.request, id });
           } else if (request.acceptedBy !== data.epoch) {
             // Replaying could double-apply: the lost leader may have run it.
             pending.delete(id);
@@ -163,11 +163,19 @@ export function gluesql({ namespace, workerUrl } = {}) {
 
   const onLeaderMessage = (data) => {
     switch (data.type) {
-      case 'query': {
+      case 'query':
+      case 'dump':
+      case 'restore': {
         if (!handled.has(data.id)) {
           handled.add(data.id);
           publish({ type: 'accepted', id: data.id, epoch });
-          dbWorker.postMessage({ id: data.id, sql: data.sql });
+          // the worker runs any `op` other than dump and restore as a query
+          dbWorker.postMessage({
+            id: data.id,
+            op: data.type,
+            sql: data.sql,
+            options: data.options,
+          });
         }
         break;
       }
@@ -183,6 +191,8 @@ export function gluesql({ namespace, workerUrl } = {}) {
   channel.onmessage = ({ data }) => {
     switch (data.type) {
       case 'query':
+      case 'dump':
+      case 'restore':
       case 'who-leads': {
         if (epoch !== null) {
           onLeaderMessage(data);
@@ -295,19 +305,33 @@ export function gluesql({ namespace, workerUrl } = {}) {
 
   leadLoop();
 
+  // `request` is the message for the leader. `query` keeps the shape older
+  // versions of this file send and understand; dump and restore are separate
+  // types, so a leader that predates them ignores them instead of running a
+  // restore as a plain query.
+  const send = (request) => {
+    if (terminalError !== null) {
+      return Promise.reject(terminalError);
+    }
+
+    return new Promise((resolve, reject) => {
+      const id = `${tabId}:${nextSeq}`;
+      nextSeq += 1;
+
+      pending.set(id, { resolve, reject, request, acceptedBy: null });
+      submit({ ...request, id });
+    });
+  };
+
   return {
     query(sql) {
-      if (terminalError !== null) {
-        return Promise.reject(terminalError);
-      }
-
-      return new Promise((resolve, reject) => {
-        const id = `${tabId}:${nextSeq}`;
-        nextSeq += 1;
-
-        pending.set(id, { resolve, reject, sql, acceptedBy: null });
-        submit({ type: 'query', id, sql });
-      });
+      return send({ type: 'query', sql });
+    },
+    dump(options) {
+      return send({ type: 'dump', options });
+    },
+    restore(sql) {
+      return send({ type: 'restore', sql });
     },
     terminate() {
       shutdown('connection terminated');

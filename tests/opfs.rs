@@ -6,6 +6,7 @@ use {
     gloo_utils::format::JsValueSerdeExt,
     gluesql_js::{Glue, load},
     serde_json::{Value as Json, json},
+    wasm_bindgen::JsValue,
     wasm_bindgen_futures::JsFuture,
     wasm_bindgen_test::*,
 };
@@ -196,4 +197,146 @@ async fn persists_across_reopen() {
         run(&mut glue, "SELECT * FROM Foo ORDER BY id").await,
         expected
     );
+}
+
+async fn dump(glue: &mut Glue) -> String {
+    JsFuture::from(glue.dump(&JsValue::UNDEFINED))
+        .await
+        .unwrap()
+        .as_string()
+        .unwrap()
+}
+
+async fn restore_error(glue: &mut Glue, sql: &str) -> String {
+    JsFuture::from(glue.restore(sql))
+        .await
+        .unwrap_err()
+        .as_string()
+        .unwrap()
+}
+
+#[wasm_bindgen_test]
+async fn dump_and_restore() {
+    let mut source = open("test-dump-source").await;
+
+    run(
+        &mut source,
+        "
+        CREATE TABLE Parent (id INTEGER PRIMARY KEY, name TEXT);
+        CREATE TABLE Child (id INTEGER, parent_id INTEGER, FOREIGN KEY (parent_id) REFERENCES Parent (id));
+        INSERT INTO Parent VALUES (1, 'it''s'), (2, NULL);
+        INSERT INTO Child VALUES (10, 1), (11, 2);
+        ",
+    )
+    .await;
+
+    let sql = dump(&mut source).await;
+
+    let mut target = open("test-dump-target").await;
+    JsFuture::from(target.restore(&sql)).await.unwrap();
+
+    assert_eq!(dump(&mut target).await, sql);
+
+    let expected = json!([
+        {
+            "type": "SELECT",
+            "rows": [
+                { "id": 10, "name": "it's" },
+                { "id": 11, "name": null },
+            ],
+        },
+    ]);
+    assert_eq!(
+        run(
+            &mut target,
+            "
+            SELECT Child.id AS id, Parent.name AS name
+            FROM Child
+            JOIN Parent ON Parent.id = Child.parent_id
+            ORDER BY id;
+            ",
+        )
+        .await,
+        expected
+    );
+}
+
+#[wasm_bindgen_test]
+async fn failed_restore_rolls_back() {
+    let mut glue = open("test-restore-rollback").await;
+
+    run(
+        &mut glue,
+        "
+        CREATE TABLE Keep (id INTEGER);
+        INSERT INTO Keep VALUES (1);
+        ",
+    )
+    .await;
+    let before = dump(&mut glue).await;
+
+    let error = restore_error(
+        &mut glue,
+        "
+        CREATE TABLE Added (id INTEGER PRIMARY KEY);
+        INSERT INTO Added VALUES (1);
+        INSERT INTO Added VALUES (1);
+        ",
+    )
+    .await;
+    assert!(error.contains("duplicate entry"), "{error}");
+    assert_eq!(dump(&mut glue).await, before);
+
+    let error = restore_error(
+        &mut glue,
+        "
+        CREATE TABLE Added (id INTEGER);
+        CREATE TABLE Keep (id INTEGER);
+        ",
+    )
+    .await;
+    assert!(error.contains("table already exists: Keep"), "{error}");
+    assert_eq!(dump(&mut glue).await, before);
+
+    for sql in ["INSERT INTO Keep VALUES (2);", "DROP TABLE Keep;"] {
+        let error = restore_error(&mut glue, sql).await;
+        assert!(error.contains("restore: only CREATE TABLE"), "{error}");
+        assert_eq!(dump(&mut glue).await, before);
+    }
+
+    // The failed restores left no transaction open.
+    run(&mut glue, "BEGIN; INSERT INTO Keep VALUES (2); COMMIT;").await;
+}
+
+#[wasm_bindgen_test]
+async fn restore_leaves_an_open_transaction_alone() {
+    let mut glue = open("test-restore-open-transaction").await;
+
+    run(
+        &mut glue,
+        "
+        CREATE TABLE Keep (id INTEGER);
+        BEGIN;
+        INSERT INTO Keep VALUES (1);
+        ",
+    )
+    .await;
+
+    let error = restore_error(&mut glue, "CREATE TABLE Added (id INTEGER);").await;
+    assert!(
+        error.contains("nested transaction is not supported"),
+        "{error}"
+    );
+
+    // dump() reads through the open transaction and keeps it open.
+    assert!(
+        dump(&mut glue)
+            .await
+            .contains(r#"INSERT INTO "Keep" ("id") VALUES (1);"#)
+    );
+
+    run(&mut glue, "ROLLBACK;").await;
+
+    let expected = json!([{ "type": "SELECT", "rows": [] }]);
+    assert_eq!(run(&mut glue, "SELECT * FROM Keep").await, expected);
 }

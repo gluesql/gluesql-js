@@ -254,6 +254,111 @@ Remaining caveats, so you are not surprised in production:
   namespace, so mixed app versions on one origin share them; keep the
   message protocol stable.
 
+## Move data between databases: `dump()` and `restore()`
+
+Every entry point — the main browser build, `gluesql/opfs`,
+`gluesql/opfs/shared`, and Node.js — can write its whole database as SQL
+text and load such text back:
+
+```javascript
+const sql = await db.dump();
+// CREATE TABLE "User" ("id" INT NULL, "name" TEXT NULL);
+// INSERT INTO "User" ("id", "name") VALUES (1, 'glue'), (2, 'sql');
+
+await other.restore(sql);
+```
+
+The dump is plain SQL, so it is not tied to a storage: offer an OPFS database
+as a download for backup, load it in another browser, or restore what the
+browser exported into Node.js.
+
+- `dump()` returns one string: a `CREATE TABLE` statement per table followed
+  by its rows as batched `INSERT`s. Tables referenced by a foreign key come
+  before the tables that reference them.
+- `restore(sql)` only adds tables. It accepts what `dump()` writes — `CREATE
+  TABLE`, then `INSERT` (and `CREATE INDEX`) for the tables that same text
+  creates — and rejects everything else, including `IF NOT EXISTS` and an
+  `INSERT` into a table that was already there. A table name that already
+  exists fails with `table already exists`.
+- A failed `restore()` leaves the database as it was, on every entry point.
+  `gluesql/opfs` runs it in one transaction and rolls back; the other
+  storages have no transactions, so the tables the restore created are
+  dropped again — which, given the rule above, undoes all of it. One
+  difference remains: if the page or process dies in the middle of a restore,
+  OPFS discards the unfinished transaction, while tables already written to
+  Web Storage stay.
+- With `gluesql/opfs`, `restore()` fails while a transaction is open (`BEGIN`
+  without `COMMIT`), and leaves that transaction as it is.
+- Where tables live in named engines — the main browser entry point and
+  Node.js — the dump writes each table's `ENGINE`, and `restore()` puts the
+  table back in it. The target therefore needs an engine of that name: to
+  load a browser dump with `localStorage` tables in Node.js, register one
+  first (`gluesql({ engines: { localStorage: { storage: 'memory' } } })`).
+  The OPFS entry points have a single storage; they accept the clause and
+  keep it for their next dump.
+- With `gluesql/opfs/shared` the leader tab serves both calls, and the
+  `leader lost` rule above applies. Restoring a dump again after that error
+  is safe: it either succeeds or fails with `table already exists` when the
+  first attempt had been committed.
+
+### From a user's browser to your server
+
+A browser database lives on the user's device, and a server cannot read it.
+The page has to send it: call `dump()` in the app and upload the text, or
+offer it to the user as a file.
+
+That text has passed through the user's hands, so do not execute it against
+a server database. Restore it into a scratch GlueSQL database in Node.js and
+let your own code move the rows:
+
+```javascript
+// In the browser
+await fetch('/import', { method: 'POST', body: await db.dump() });
+
+// On the server
+const { gluesql } = require('gluesql');
+
+const scratch = gluesql();
+await scratch.restore(uploaded);
+
+const [{ rows }] = await scratch.query('SELECT id, body FROM Note');
+// Validate the rows, set their owner, assign ids, and insert them through
+// your database driver.
+```
+
+`restore()` runs nothing but `CREATE TABLE` and the `INSERT`s for the tables
+it creates, and the scratch database is in memory, so the upload never
+reaches the server database as SQL. Limit the size of the upload yourself.
+
+### Rows only, for a database that already has the tables
+
+For text you can trust — your own data, an internal tool — `schema: false`
+leaves out the `CREATE TABLE` statements, so the rows can go straight into a
+database whose tables already exist and hold other rows:
+
+```javascript
+const data = await db.dump({ schema: false });
+// INSERT INTO "User" ("id", "name") VALUES (1, 'glue'), (2, 'sql');
+```
+
+Every `INSERT` names its columns, so the target table may keep them in
+another order or have more of them.
+
+- Every column is written, keys included. A row whose key is already taken
+  fails its `INSERT`; skipping or overwriting such rows is written
+  differently in every database, so the dump leaves that to you.
+- If the target hands out its own ids, the rows need new ids and every
+  reference to them has to follow. That takes a script: read the rows with
+  `query()` and insert them through the target's driver. Keys generated on
+  the client, such as `GENERATE_UUID()`, avoid the problem.
+- The statements are GlueSQL's own SQL, with identifiers in double quotes.
+  They are not adapted to another database's dialect.
+
+This text is meant for another database. Inside GlueSQL, `restore()` only
+adds tables, so run it through `query()` there. A dump that came from a
+user's browser does not belong here: take it through the scratch database
+above.
+
 ## The same SQL in Node.js
 
 The `gluesql` package exposes the same API in Node.js, so schema and queries

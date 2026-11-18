@@ -145,6 +145,53 @@ test('a query sent while no tab leads waits for the next leader', async ({
   expect(rows.rows).toEqual([{ count: 1 }]);
 });
 
+test('a follower tab dumps and restores through the leader', async ({
+  page,
+  context,
+}) => {
+  await connect(page, 'shared-dump');
+  await query(
+    page,
+    `CREATE TABLE Item (id INTEGER, name TEXT);
+     INSERT INTO Item VALUES (1, 'from-tab-a');`,
+  );
+
+  const pageB = await context.newPage();
+  await connect(pageB, 'shared-dump');
+
+  const dumped = await pageB.evaluate(() => window.db.dump());
+  expect(dumped).toBe(
+    [
+      'CREATE TABLE "Item" ("id" INT NULL, "name" TEXT NULL);',
+      `INSERT INTO "Item" ("id", "name") VALUES (1, 'from-tab-a');`,
+      '',
+    ].join('\n'),
+  );
+
+  const data = await pageB.evaluate(() => window.db.dump({ schema: false }));
+  expect(data).toBe(
+    `INSERT INTO "Item" ("id", "name") VALUES (1, 'from-tab-a');\n`,
+  );
+
+  await pageB.evaluate(() =>
+    window.db.restore(`
+      CREATE TABLE Copy (id INTEGER);
+      INSERT INTO Copy VALUES (7);
+    `),
+  );
+  const [seenByA] = await query(page, 'SELECT * FROM Copy;');
+  expect(seenByA.rows).toEqual([{ id: 7 }]);
+
+  const failure = await pageB.evaluate(() =>
+    window.db
+      .restore('CREATE TABLE Other (id INTEGER); CREATE TABLE Copy (id INTEGER);')
+      .catch((error) => error.message),
+  );
+  expect(failure).toContain('table already exists: Copy');
+  const [tables] = await query(page, 'SHOW TABLES;');
+  expect(tables.tables).toEqual(['Copy', 'Item']);
+});
+
 test('falls back to single-context mode without BroadcastChannel', async ({
   context,
 }) => {
