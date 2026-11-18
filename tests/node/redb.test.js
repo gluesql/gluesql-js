@@ -31,6 +31,7 @@ test('keeps data on disk across instances', async (t) => {
   assert.deepEqual(await reader.query('SELECT * FROM User'), [
     { type: 'SELECT', rows: [{ id: 1, name: 'glue' }] },
   ]);
+  close(reader);
 });
 
 test('persists appends, updates, deletes and drops', async (t) => {
@@ -83,6 +84,7 @@ test('persists appends, updates, deletes and drops', async (t) => {
     () => fourth.query('SELECT * FROM User'),
     /table not found: User/,
   );
+  close(fourth);
 });
 
 test('joins a redb table with an in-memory table', async (t) => {
@@ -114,6 +116,7 @@ test('joins a redb table with an in-memory table', async (t) => {
     () => reopened.query('SELECT * FROM Cached'),
     /table not found: Cached/,
   );
+  close(reopened);
 });
 
 test('reports the lock held on an open database file', async (t) => {
@@ -125,9 +128,11 @@ test('reports the lock held on an open database file', async (t) => {
 
   close(holder);
 
-  assert.deepEqual(await open(file).query('SELECT * FROM User'), [
+  const reopened = open(file);
+  assert.deepEqual(await reopened.query('SELECT * FROM User'), [
     { type: 'SELECT', rows: [] },
   ]);
+  close(reopened);
 });
 
 test('reports the failure when the path is not usable', (t) => {

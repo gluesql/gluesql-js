@@ -317,13 +317,33 @@ const db = gluesql({
 });
 ```
 
-The file is locked exclusively while the engine is registered, so one `path`
-cannot be opened twice at a time. `removeEngine` releases it:
+Use a transaction when several changes belong together. Set `redb` as the
+default engine, as above, then run `BEGIN` and `COMMIT` around the changes:
 
 ```javascript
-db.setDefaultEngine('memory');
-db.removeEngine('local');
+await db.query('BEGIN');
+await db.query('CREATE TABLE Notes (id INTEGER PRIMARY KEY, body TEXT)');
+await db.query("INSERT INTO Notes VALUES (1, 'Pick up the keys')");
+await db.query('COMMIT');
 ```
+
+If a statement fails, the transaction stays open. Use `ROLLBACK` to discard
+its changes. If `COMMIT` itself fails, don't assume nothing was saved.
+
+Notes:
+
+- `BEGIN` uses the current default engine and fails if that engine is `memory`.
+  You can still read from or join with other engines, but only the selected
+  redb file can be changed. This is not a snapshot across engines.
+- Finish the transaction before starting another, changing engines, or
+  creating or dropping SQL functions.
+- Each redb file is locked while registered. To let another instance open it,
+  switch the default engine and unregister it:
+
+  ```javascript
+  db.setDefaultEngine('memory');
+  db.removeEngine('local');
+  ```
 
 ## License
 

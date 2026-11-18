@@ -9,7 +9,10 @@ use {
         },
     },
     gluesql_memory_storage::MemoryStorage,
-    std::collections::{BTreeMap, HashMap},
+    std::{
+        collections::{BTreeMap, HashMap},
+        fmt::{self, Display},
+    },
 };
 
 /// Engine registered when a [`Glue`](super::Glue) instance is created.
@@ -30,6 +33,7 @@ pub struct Engines {
     storages: BTreeMap<String, Box<dyn Engine>>,
     default_engine: Option<String>,
     functions: HashMap<String, StructCustomFunction>,
+    transaction_engine: Option<String>,
 }
 
 impl Default for Engines {
@@ -41,6 +45,7 @@ impl Default for Engines {
             )]),
             default_engine: Some(DEFAULT_ENGINE.to_owned()),
             functions: HashMap::new(),
+            transaction_engine: None,
         }
     }
 }
@@ -49,6 +54,8 @@ impl Engines {
     /// Registers a backend under `engine`. The name is what the `ENGINE` clause
     /// of `CREATE TABLE` refers to.
     pub fn add(&mut self, engine: String, config: StorageConfig) -> Result<()> {
+        self.require_no_explicit_transaction("add an engine")?;
+
         if !is_identifier(&engine) {
             return Err(Error::StorageMsg(format!(
                 "invalid engine name: {engine:?} (the ENGINE clause only accepts letters, digits and underscores)"
@@ -68,6 +75,8 @@ impl Engines {
 
     /// Unregisters a backend, leaving the data it owns untouched.
     pub fn remove(&mut self, engine: &str) -> Result<()> {
+        self.require_no_explicit_transaction("remove an engine")?;
+
         if self.default_engine.as_deref() == Some(engine) {
             return Err(Error::StorageMsg(format!(
                 "cannot remove the default engine: {engine} (call setDefaultEngine first)"
@@ -90,6 +99,8 @@ impl Engines {
     }
 
     pub fn set_default(&mut self, engine: String) -> Result<()> {
+        self.require_no_explicit_transaction("change the default engine")?;
+
         if !self.storages.contains_key(&engine) {
             return Err(self.not_found(&engine));
         }
@@ -135,10 +146,48 @@ impl Engines {
 
     fn storage_of_mut(&mut self, table_name: &str) -> Result<&mut Box<dyn Engine>> {
         let engine = self.engine_of(table_name)?.to_owned();
+        self.check_write_engine(&engine)?;
 
         self.storages
             .get_mut(&engine)
             .ok_or_else(|| Self::missing_storage(table_name))
+    }
+
+    fn require_no_explicit_transaction(&self, operation: &str) -> Result<()> {
+        if let Some(engine) = &self.transaction_engine {
+            return Err(Error::StorageMsg(format!(
+                "cannot {operation} during a transaction on engine {engine}"
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn check_write_engine(&self, engine: &str) -> Result<()> {
+        if let Some(target) = &self.transaction_engine
+            && engine != target
+        {
+            return Err(Error::StorageMsg(format!(
+                "transaction on engine {target} cannot write to engine {engine}"
+            )));
+        }
+
+        Ok(())
+    }
+
+    /// Attempt every included rollback, even after a backend reports an error.
+    fn rollback_except(&mut self, excluded: Option<&str>) -> Vec<(String, Error)> {
+        let mut failures = Vec::new();
+
+        for (engine, storage) in &mut self.storages {
+            if Some(engine.as_str()) != excluded
+                && let Err(error) = storage.rollback()
+            {
+                failures.push((engine.clone(), error));
+            }
+        }
+
+        failures
     }
 
     fn missing_storage(table_name: &str) -> Error {
@@ -206,6 +255,7 @@ impl StoreMut for Engines {
             .ok_or_else(|| {
                 Error::StorageMsg(format!("engine not found for table: {}", schema.table_name))
             })?;
+        self.check_write_engine(&engine)?;
 
         let schema = Schema {
             engine: Some(engine.clone()),
@@ -240,20 +290,64 @@ impl StoreMut for Engines {
 
 impl Transaction for Engines {
     fn begin(&mut self, autocommit: bool) -> Result<bool> {
-        if !autocommit {
-            return Err(Error::StorageMsg(
-                "explicit transactions are not supported when engines are combined".to_owned(),
-            ));
+        if self.transaction_engine.is_some() {
+            return if autocommit {
+                Ok(false)
+            } else {
+                Err(Error::StorageMsg(
+                    "nested transaction is not supported".to_owned(),
+                ))
+            };
         }
 
-        for storage in self.storages.values_mut() {
-            storage.begin(autocommit)?;
+        if autocommit {
+            for storage in self.storages.values_mut() {
+                storage.begin(true)?;
+            }
+
+            return Ok(true);
         }
 
-        Ok(true)
+        let engine = self
+            .default_engine
+            .clone()
+            .ok_or_else(|| Error::StorageMsg("default engine is not set".to_owned()))?;
+
+        self.storages
+            .get_mut(&engine)
+            .ok_or_else(|| Self::missing_storage(&engine))?
+            .begin(false)?;
+
+        // redb needs an active backend transaction to enumerate schemas,
+        // including when the registry reads schemas from non-target engines.
+        let failure = self
+            .storages
+            .iter_mut()
+            .filter(|(name, _)| *name != &engine)
+            .find_map(|(name, storage)| {
+                storage.begin(true).err().map(|error| (name.clone(), error))
+            });
+
+        if let Some((name, error)) = failure {
+            let failures = self.rollback_except(None);
+            return Err(transaction_error(Some((&name, &error)), &failures));
+        }
+
+        self.transaction_engine = Some(engine);
+
+        Ok(false)
     }
 
     fn rollback(&mut self) -> Result<()> {
+        if self.transaction_engine.take().is_some() {
+            let failures = self.rollback_except(None);
+            return if failures.is_empty() {
+                Ok(())
+            } else {
+                Err(transaction_error(None, &failures))
+            };
+        }
+
         for storage in self.storages.values_mut() {
             storage.rollback()?;
         }
@@ -262,12 +356,64 @@ impl Transaction for Engines {
     }
 
     fn commit(&mut self) -> Result<()> {
+        if let Some(engine) = self.transaction_engine.take() {
+            // Do not commit the target if auxiliary rollback fails.
+            let mut failures = self.rollback_except(Some(&engine));
+            let target = self.storages.get_mut(&engine).ok_or_else(|| {
+                Error::StorageMsg(format!("transaction engine not found: {engine}"))
+            })?;
+
+            if failures.is_empty() {
+                return target.commit();
+            }
+
+            if let Err(error) = target.rollback() {
+                failures.push((engine, error));
+            }
+            return Err(transaction_error(None, &failures));
+        }
+
         for storage in self.storages.values_mut() {
             storage.commit()?;
         }
 
         Ok(())
     }
+}
+
+fn transaction_error(
+    begin_failure: Option<(&str, &Error)>,
+    rollback_failures: &[(String, Error)],
+) -> Error {
+    fn error_detail(error: &Error) -> &dyn Display {
+        match error {
+            Error::StorageMsg(message) => message,
+            cause => cause,
+        }
+    }
+
+    let details = fmt::from_fn(|f| {
+        if let Some((engine, error)) = begin_failure {
+            write!(
+                f,
+                "begin failed for engine {engine}: {}",
+                error_detail(error)
+            )?;
+        }
+        for (index, (engine, error)) in rollback_failures.iter().enumerate() {
+            if index > 0 || begin_failure.is_some() {
+                f.write_str("; ")?;
+            }
+            write!(
+                f,
+                "rollback failed for engine {engine}: {}",
+                error_detail(error)
+            )?;
+        }
+        Ok(())
+    });
+
+    Error::StorageMsg(details.to_string())
 }
 
 impl Metadata for Engines {
@@ -298,12 +444,16 @@ impl CustomFunction for Engines {
 
 impl CustomFunctionMut for Engines {
     fn insert_function(&mut self, func: StructCustomFunction) -> Result<()> {
+        self.require_no_explicit_transaction("modify custom functions")?;
+
         self.functions.insert(func.func_name.to_uppercase(), func);
 
         Ok(())
     }
 
     fn delete_function(&mut self, func_name: &str) -> Result<()> {
+        self.require_no_explicit_transaction("modify custom functions")?;
+
         self.functions.remove(&func_name.to_uppercase());
 
         Ok(())
