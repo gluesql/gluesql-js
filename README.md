@@ -307,8 +307,24 @@ loudly instead of quietly falling back to a default.
 
 ### `redb`
 
-`redb` is an embedded key-value store kept in a single file, and the engine to
-reach for when data has to survive restarts.
+Open a redb file directly to keep your data across restarts and commit several
+changes together:
+
+```javascript
+const db = gluesql({ storage: 'redb', path: './gluesql.db' });
+
+await db.query('BEGIN');
+await db.query('CREATE TABLE Notes (id INTEGER PRIMARY KEY, body TEXT)');
+await db.query("INSERT INTO Notes VALUES (1, 'Pick up the keys')");
+await db.query('COMMIT');
+db.close();
+```
+
+If a statement fails, use `ROLLBACK` to discard the pending changes before
+continuing. `close()` also discards any uncommitted changes and releases the
+file lock. If `COMMIT` itself fails, don't assume nothing was saved.
+
+To join redb tables with tables from other engines, register the file instead:
 
 ```javascript
 const db = gluesql({
@@ -317,33 +333,10 @@ const db = gluesql({
 });
 ```
 
-Use a transaction when several changes belong together. Set `redb` as the
-default engine, as above, then run `BEGIN` and `COMMIT` around the changes:
-
-```javascript
-await db.query('BEGIN');
-await db.query('CREATE TABLE Notes (id INTEGER PRIMARY KEY, body TEXT)');
-await db.query("INSERT INTO Notes VALUES (1, 'Pick up the keys')");
-await db.query('COMMIT');
-```
-
-If a statement fails, the transaction stays open. Use `ROLLBACK` to discard
-its changes. If `COMMIT` itself fails, don't assume nothing was saved.
-
-Notes:
-
-- `BEGIN` uses the current default engine and fails if that engine is `memory`.
-  You can still read from or join with other engines, but only the selected
-  redb file can be changed. This is not a snapshot across engines.
-- Finish the transaction before starting another, changing engines, or
-  creating or dropping SQL functions.
-- Each redb file is locked while registered. To let another instance open it,
-  switch the default engine and unregister it:
-
-  ```javascript
-  db.setDefaultEngine('memory');
-  db.removeEngine('local');
-  ```
+The registry does not support `BEGIN`. Use either `storage` and `path` or
+`engines` and `defaultEngine`, not both. A redb file can only be opened once at
+a time. In registry mode, switch the default engine before unregistering
+the file with `removeEngine('local')`.
 
 ## License
 
