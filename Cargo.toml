@@ -61,14 +61,19 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["console_error_panic_hook"]
 
+# Node.js binding. The storage engines it registers are opt-in cargo features,
+# so a build only carries the backends it was asked for.
 nodejs = []
+# Every backend this crate can build.
+full = ["nodejs"]
+
 opfs = ["dep:gluesql-opfs-storage"]
 
 [dependencies]
 gluesql-core.workspace = true
 gluesql_memory_storage.workspace = true
 
-serde = "1"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -87,7 +92,7 @@ gloo-utils = { version = "0.1.6", features = ["serde"] }
 console_error_panic_hook = { version = "0.1.6", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-napi = { version = "3", default-features = false, features = ["napi4"] }
+napi = { version = "3", default-features = false, features = ["napi4", "serde-json"] }
 napi-derive = "3"
 
 [build-dependencies]
