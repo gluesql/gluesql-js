@@ -301,11 +301,40 @@ browser exported into Node.js.
   is safe: it either succeeds or fails with `table already exists` when the
   first attempt had been committed.
 
+### From a user's browser to your server
+
+A browser database lives on the user's device, and a server cannot read it.
+The page has to send it: call `dump()` in the app and upload the text, or
+offer it to the user as a file.
+
+That text has passed through the user's hands, so do not execute it against
+a server database. Restore it into a scratch GlueSQL database in Node.js and
+let your own code move the rows:
+
+```javascript
+// In the browser
+await fetch('/import', { method: 'POST', body: await db.dump() });
+
+// On the server
+const { gluesql } = require('gluesql');
+
+const scratch = gluesql();
+await scratch.restore(uploaded);
+
+const [{ rows }] = await scratch.query('SELECT id, body FROM Note');
+// Validate the rows, set their owner, assign ids, and insert them through
+// your database driver.
+```
+
+`restore()` runs nothing but `CREATE TABLE` and the `INSERT`s for the tables
+it creates, and the scratch database is in memory, so the upload never
+reaches the server database as SQL. Limit the size of the upload yourself.
+
 ### Rows only, for a database that already has the tables
 
-When an app outgrows the browser, its data usually moves into a server
-database whose tables already exist and hold other rows. `schema: false`
-leaves out the `CREATE TABLE` statements:
+For text you can trust — your own data, an internal tool — `schema: false`
+leaves out the `CREATE TABLE` statements, so the rows can go straight into a
+database whose tables already exist and hold other rows:
 
 ```javascript
 const data = await db.dump({ schema: false });
@@ -326,7 +355,9 @@ another order or have more of them.
   They are not adapted to another database's dialect.
 
 This text is meant for another database. Inside GlueSQL, `restore()` only
-adds tables, so run it through `query()` there.
+adds tables, so run it through `query()` there. A dump that came from a
+user's browser does not belong here: take it through the scratch database
+above.
 
 ## The same SQL in Node.js
 
