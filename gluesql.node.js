@@ -16,6 +16,12 @@ function gluesql(options = {}) {
     async query(sql) {
       return JSON.parse(db.query(sql));
     },
+    async dump({ schema = true } = {}) {
+      return db.dump(schema);
+    },
+    async restore(sql) {
+      db.restore(sql);
+    },
     addEngine(name, config) {
       db.addEngine(name, config);
     },

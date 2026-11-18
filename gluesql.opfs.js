@@ -48,19 +48,29 @@ export function gluesql({ namespace, workerUrl } = {}) {
     fail(new Error(event.message ?? 'worker error'));
   };
 
+  const send = (request) => {
+    if (terminalError !== null) {
+      return Promise.reject(terminalError);
+    }
+
+    return new Promise((resolve, reject) => {
+      const id = nextId;
+      nextId += 1;
+
+      pending.set(id, { resolve, reject });
+      worker.postMessage({ id, ...request });
+    });
+  };
+
   return {
     query(sql) {
-      if (terminalError !== null) {
-        return Promise.reject(terminalError);
-      }
-
-      return new Promise((resolve, reject) => {
-        const id = nextId;
-        nextId += 1;
-
-        pending.set(id, { resolve, reject });
-        worker.postMessage({ id, sql });
-      });
+      return send({ sql });
+    },
+    dump(options) {
+      return send({ op: 'dump', options });
+    },
+    restore(sql) {
+      return send({ op: 'restore', sql });
     },
     terminate() {
       worker.terminate();

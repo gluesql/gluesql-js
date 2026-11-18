@@ -1,3 +1,4 @@
+mod dump;
 mod payload;
 
 #[cfg(not(target_arch = "wasm32"))]
