@@ -1,6 +1,7 @@
 const native = require('./gluesql.native.js');
 
 function gluesql(options = {}) {
+  // Single-file mode: the native redb opener validates the storage options.
   if (Object.hasOwn(options, 'storage')) {
     if (!native.openRedb) {
       throw new Error('This build does not support opening redb files');
@@ -15,6 +16,13 @@ function gluesql(options = {}) {
         db.close();
       },
     };
+  }
+
+  // Registry mode: reject unknown options rather than silently opening memory.
+  for (const key of Object.getOwnPropertyNames(options)) {
+    if (key !== 'engines' && key !== 'defaultEngine') {
+      throw new TypeError(`unknown registry option: ${key}`);
+    }
   }
 
   const { engines = {}, defaultEngine } = options;

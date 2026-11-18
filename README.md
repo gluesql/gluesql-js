@@ -333,10 +333,12 @@ const db = gluesql({
 });
 ```
 
-The registry does not support `BEGIN`. Use either `storage` and `path` or
-`engines` and `defaultEngine`, not both. A redb file can only be opened once at
-a time. In registry mode, switch the default engine before unregistering
-the file with `removeEngine('local')`.
+The registry does not support `BEGIN`. Keep the two forms separate. If you
+pass a file path without a valid `storage: 'redb'` option, `gluesql()` throws
+instead of opening an in-memory database.
+
+A redb file can only be opened once at a time. In registry mode, switch the
+default engine before unregistering the file with `removeEngine('local')`.
 
 If opening the registry fails, it releases any files opened during that call,
 so you can correct the options and try again immediately.
