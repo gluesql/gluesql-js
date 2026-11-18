@@ -87,8 +87,15 @@ impl Glue {
 
 #[napi]
 #[allow(dead_code)]
-pub fn gluesql() -> Glue {
-    Glue::new()
+pub fn gluesql(engines: Vec<(String, Json)>, default_engine: Option<String>) -> Result<Glue> {
+    let mut db = Glue::new();
+    for (name, config) in engines {
+        db.add_engine(name, config)?;
+    }
+    if let Some(engine) = default_engine {
+        db.set_default_engine(engine)?;
+    }
+    Ok(db)
 }
 
 /// Storage backends this build was compiled with, sorted alphabetically.

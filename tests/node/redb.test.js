@@ -135,6 +135,35 @@ test('reports the lock held on an open database file', async (t) => {
   close(reopened);
 });
 
+test('releases the redb file when the configured default engine does not exist', async (t) => {
+  const path = tempPath(t, 'wrong-default.db');
+  const engines = { local: { storage: 'redb', path } };
+
+  assert.throws(() => gluesql({ engines, defaultEngine: 'typo' }), /engine not found: typo/);
+
+  const db = gluesql({ engines, defaultEngine: 'local' });
+  try {
+    await db.query('CREATE TABLE Notes (id INTEGER)');
+    assert.deepEqual(await db.query('SHOW TABLES'), [{ type: 'SHOW TABLES', tables: ['Notes'] }]);
+  } finally {
+    close(db);
+  }
+});
+
+test('releases the first redb file when a later engine cannot open it again', async (t) => {
+  const path = tempPath(t, 'duplicate-file.db');
+  const local = { storage: 'redb', path };
+
+  assert.throws(() => gluesql({ engines: { local, duplicate: local } }), /already open|lock/i);
+
+  const db = open(path);
+  try {
+    assert.deepEqual(await db.query('SHOW TABLES'), [{ type: 'SHOW TABLES', tables: [] }]);
+  } finally {
+    close(db);
+  }
+});
+
 test('reports the failure when the path is not usable', (t) => {
   const db = gluesql();
 

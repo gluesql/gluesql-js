@@ -338,6 +338,9 @@ The registry does not support `BEGIN`. Use either `storage` and `path` or
 a time. In registry mode, switch the default engine before unregistering
 the file with `removeEngine('local')`.
 
+If opening the registry fails, it releases any files opened during that call,
+so you can correct the options and try again immediately.
+
 ## License
 
 This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](https://raw.githubusercontent.com/gluesql/gluesql-js/main/LICENSE) file for details.

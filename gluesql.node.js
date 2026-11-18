@@ -18,15 +18,10 @@ function gluesql(options = {}) {
   }
 
   const { engines = {}, defaultEngine } = options;
-  const db = native.gluesql();
-
-  for (const [name, config] of Object.entries(engines)) {
-    db.addEngine(name, config);
+  if (defaultEngine !== undefined && typeof defaultEngine !== 'string') {
+    throw new TypeError('defaultEngine must be a string');
   }
-
-  if (defaultEngine !== undefined) {
-    db.setDefaultEngine(defaultEngine);
-  }
+  const db = native.gluesql(Object.entries(engines), defaultEngine);
 
   return {
     async query(sql) {
