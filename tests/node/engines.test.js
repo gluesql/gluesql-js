@@ -159,6 +159,16 @@ test('rejects misspelled and misplaced config options', () => {
   );
 });
 
+test('does not open memory when the direct storage option is missing or misspelled', () => {
+  const path = './notes.db';
+
+  assert.throws(() => gluesql({ path }), /unknown registry option: path/);
+  assert.throws(
+    () => gluesql({ storge: 'redb', path }),
+    /unknown registry option: storge/,
+  );
+});
+
 test('supports custom functions', async () => {
   const db = gluesql();
 

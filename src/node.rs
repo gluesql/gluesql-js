@@ -1,10 +1,15 @@
 mod engines;
+#[cfg(feature = "redb")]
+mod redb;
 mod storage;
 
 use {
     crate::{dump, payload::convert},
     engines::Engines,
-    gluesql_core::prelude::Glue as CoreGlue,
+    gluesql_core::{
+        prelude::Glue as CoreGlue,
+        store::{GStore, GStoreMut, Planner},
+    },
     napi::{Error, Result},
     napi_derive::napi,
     serde_json::Value as Json,
@@ -76,9 +81,7 @@ impl Glue {
     #[napi]
     #[allow(clippy::needless_pass_by_value)]
     pub fn query(&mut self, sql: String) -> Result<String> {
-        let payloads = self.inner.execute(sql).map_err(to_napi_error)?;
-
-        serde_json::to_string(&convert(payloads)).map_err(to_napi_error)
+        execute_query(&mut self.inner, &sql)
     }
 
     #[napi]
@@ -95,8 +98,15 @@ impl Glue {
 
 #[napi]
 #[allow(dead_code)]
-pub fn gluesql() -> Glue {
-    Glue::new()
+pub fn gluesql(engines: Vec<(String, Json)>, default_engine: Option<String>) -> Result<Glue> {
+    let mut db = Glue::new();
+    for (name, config) in engines {
+        db.add_engine(name, config)?;
+    }
+    if let Some(engine) = default_engine {
+        db.set_default_engine(engine)?;
+    }
+    Ok(db)
 }
 
 /// Storage backends this build was compiled with, sorted alphabetically.
@@ -104,6 +114,15 @@ pub fn gluesql() -> Glue {
 #[allow(dead_code)]
 pub fn storages() -> Vec<String> {
     storage::storages()
+}
+
+fn execute_query<T: GStore + GStoreMut + Planner>(
+    db: &mut CoreGlue<T>,
+    sql: &str,
+) -> Result<String> {
+    let payloads = db.execute(sql).map_err(to_napi_error)?;
+
+    serde_json::to_string(&convert(payloads)).map_err(to_napi_error)
 }
 
 #[allow(clippy::needless_pass_by_value)]

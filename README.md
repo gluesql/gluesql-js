@@ -369,6 +369,7 @@ it is what the `ENGINE` clause of `CREATE TABLE` refers to.
 | Your data is… | Keep it in | `storage` |
 | --- | --- | --- |
 | Scratch state & caches | Memory | `memory` (default) |
+| Real data that must survive restarts | One redb file | `redb` |
 
 ```javascript
 const { gluesql } = require('gluesql');
@@ -408,6 +409,44 @@ engine cannot be removed - point `setDefaultEngine` at another engine first.
 
 Unknown keys in an engine config are rejected, so a misspelled option fails
 loudly instead of quietly falling back to a default.
+
+### `redb`
+
+Open a redb file directly to keep your data across restarts and commit several
+changes together:
+
+```javascript
+const db = gluesql({ storage: 'redb', path: './gluesql.db' });
+
+await db.query('BEGIN');
+await db.query('CREATE TABLE Notes (id INTEGER PRIMARY KEY, body TEXT)');
+await db.query("INSERT INTO Notes VALUES (1, 'Pick up the keys')");
+await db.query('COMMIT');
+db.close();
+```
+
+If a statement fails, use `ROLLBACK` to discard the pending changes before
+continuing. `close()` also discards any uncommitted changes and releases the
+file lock. If `COMMIT` itself fails, don't assume nothing was saved.
+
+To join redb tables with tables from other engines, register the file instead:
+
+```javascript
+const db = gluesql({
+  engines: { local: { storage: 'redb', path: './gluesql.db' } },
+  defaultEngine: 'local',
+});
+```
+
+The registry does not support `BEGIN`. Keep the two forms separate. If you
+pass a file path without a valid `storage: 'redb'` option, `gluesql()` throws
+instead of opening an in-memory database.
+
+A redb file can only be opened once at a time. In registry mode, switch the
+default engine before unregistering the file with `removeEngine('local')`.
+
+If opening the registry fails, it releases any files opened during that call,
+so you can correct the options and try again immediately.
 
 ## License
 

@@ -63,10 +63,11 @@ default = ["console_error_panic_hook"]
 
 # Node.js binding. The storage engines it registers are opt-in cargo features,
 # so a build only carries the backends it was asked for.
-nodejs = []
+nodejs = ["redb"]
 # Every backend this crate can build.
 full = ["nodejs"]
 
+redb = ["dep:gluesql-redb-storage"]
 opfs = ["dep:gluesql-opfs-storage"]
 
 [dependencies]
@@ -92,6 +93,8 @@ gloo-utils = { version = "0.1.6", features = ["serde"] }
 console_error_panic_hook = { version = "0.1.6", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+gluesql-redb-storage = { workspace = true, optional = true }
+
 napi = { version = "3", default-features = false, features = ["napi4", "serde-json"] }
 napi-derive = "3"
 

@@ -1,16 +1,35 @@
 const native = require('./gluesql.native.js');
 
 function gluesql(options = {}) {
+  // Single-file mode: the native redb opener validates the storage options.
+  if (Object.hasOwn(options, 'storage')) {
+    if (!native.openRedb) {
+      throw new Error('This build does not support opening redb files');
+    }
+    const db = native.openRedb(options);
+
+    return {
+      async query(sql) {
+        return JSON.parse(db.query(sql));
+      },
+      close() {
+        db.close();
+      },
+    };
+  }
+
+  // Registry mode: reject unknown options rather than silently opening memory.
+  for (const key of Object.getOwnPropertyNames(options)) {
+    if (key !== 'engines' && key !== 'defaultEngine') {
+      throw new TypeError(`unknown registry option: ${key}`);
+    }
+  }
+
   const { engines = {}, defaultEngine } = options;
-  const db = native.gluesql();
-
-  for (const [name, config] of Object.entries(engines)) {
-    db.addEngine(name, config);
+  if (defaultEngine !== undefined && typeof defaultEngine !== 'string') {
+    throw new TypeError('defaultEngine must be a string');
   }
-
-  if (defaultEngine !== undefined) {
-    db.setDefaultEngine(defaultEngine);
-  }
+  const db = native.gluesql(Object.entries(engines), defaultEngine);
 
   return {
     async query(sql) {
