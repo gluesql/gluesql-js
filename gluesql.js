@@ -1,17 +1,24 @@
 import init, { Glue } from './dist_web/gluesql_js.js';
 
-let loaded = false;
+// Shared by every gluesql() call, so overlapping calls (such as React
+// StrictMode running effects twice) wait for one WebAssembly instance
+// instead of each loading their own.
+let loading = null;
 
-async function load(module_or_path) {
-  await init(module_or_path);
+function load(module_or_path) {
+  if (loading === null) {
+    loading = init(module_or_path).catch((error) => {
+      loading = null;
 
-  loaded = true;
+      throw error;
+    });
+  }
+
+  return loading;
 }
 
 export async function gluesql(module_or_path) {
-  if (!loaded) {
-    await load(module_or_path);
-  }
+  await load(module_or_path);
 
   return new Glue();
 }
