@@ -8,8 +8,8 @@ use {
         data::{Key, Schema, Value},
         error::{Error, Result},
         store::{
-            AlterTable, CustomFunction, CustomFunctionMut, Index, IndexMut, Metadata, Planner,
-            RowIter, Store, StoreMut, Transaction,
+            AlterTable, CustomFunction, CustomFunctionMut, Index, IndexMut, Metadata, NativeQuery,
+            Planner, RowIter, ScanColumns, Store, StoreMut, Transaction,
         },
     },
     serde::{Deserialize, Serialize},
@@ -110,7 +110,7 @@ impl Store for WebStorage {
         Ok(row)
     }
 
-    fn scan_data<'a>(&'a self, table_name: &str) -> Result<RowIter<'a>> {
+    fn scan_data<'a>(&'a self, table_name: &str, columns: ScanColumns<'_>) -> Result<RowIter<'a>> {
         let path = format!("{DATA_PATH}/{table_name}");
         let mut rows = self
             .get::<Vec<(Key, Vec<Value>)>>(path)?
@@ -130,6 +130,17 @@ impl Store for WebStorage {
                 rows.sort_by(|(key_a, _), (key_b, _)| key_a.cmp(key_b));
             }
             _ => {}
+        }
+
+        if let ScanColumns::Selected(columns) = columns {
+            for (_, row) in &mut rows {
+                let mut positions = columns.iter().map(|(_, index)| *index).peekable();
+                *row = std::mem::take(row)
+                    .into_iter()
+                    .enumerate()
+                    .filter_map(|(index, value)| positions.next_if_eq(&index).map(|_| value))
+                    .collect();
+            }
         }
 
         Ok(Box::new(rows.into_iter().map(Ok)))
@@ -212,6 +223,7 @@ impl Index for WebStorage {}
 impl IndexMut for WebStorage {}
 impl Transaction for WebStorage {}
 impl Metadata for WebStorage {}
+impl NativeQuery for WebStorage {}
 impl Planner for WebStorage {}
 impl CustomFunction for WebStorage {}
 impl CustomFunctionMut for WebStorage {}
