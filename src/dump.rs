@@ -4,12 +4,11 @@
 
 use {
     gluesql_core::{
-        ast::ToSql,
+        ast::{Statement, ToSql},
         data::{Schema, Value},
         error::Error as CoreError,
-        plan::StatementPlan,
-        prelude::{Glue, parse},
-        store::{GStore, GStoreMut, Planner},
+        prelude::{Glue, parse, translate},
+        store::{GStore, GStoreMut, Planner, ScanColumns},
     },
     std::fmt,
 };
@@ -63,7 +62,7 @@ fn tables_sql<T: GStore>(storage: &T, with_schema: bool) -> Result<String> {
         let insert_into = insert_into_sql(&schema);
         let mut rows = Vec::with_capacity(ROWS_PER_INSERT);
 
-        for row in storage.scan_data(&schema.table_name)? {
+        for row in storage.scan_data(&schema.table_name, ScanColumns::All)? {
             let (_, values) = row?;
             let values = values.iter().map(value_sql).collect::<Vec<_>>().join(", ");
 
@@ -147,7 +146,7 @@ fn order_by_foreign_keys(mut schemas: Vec<Schema>) -> Vec<Schema> {
 }
 
 /// `Schema::to_ddl` with the quotes inside `COMMENT` strings escaped, which
-/// it leaves as they are. Identifiers containing a double quote are not
+/// it leaves as they are. Column names containing a double quote are not
 /// escaped by it either, so the statement is parsed once here: a dump that
 /// cannot be restored fails now instead of at restore time.
 fn create_table_sql(schema: &Schema) -> Result<String> {
@@ -197,13 +196,13 @@ fn needs_cast(n: f64) -> bool {
     !n.is_finite() || (n == 0.0 && n.is_sign_negative())
 }
 
-/// Plans the whole text first, so a syntax error is reported before any
-/// statement runs.
-fn plan<T: GStore + GStoreMut + Planner>(
-    glue: &mut Glue<T>,
-    sql: &str,
-) -> Result<Vec<StatementPlan>> {
-    let statements = glue.plan(sql)?;
+/// Validate the whole restore before writing. Planning happens during execution
+/// so each statement can see tables created earlier in the dump.
+fn restore_statements(sql: &str) -> Result<Vec<Statement>> {
+    let statements = parse(sql)?
+        .iter()
+        .map(translate)
+        .collect::<gluesql_core::error::Result<Vec<_>>>()?;
 
     if writes_only_to_created_tables(&statements) {
         Ok(statements)
@@ -219,11 +218,11 @@ fn plan<T: GStore + GStoreMut + Planner>(
 /// The shape `dump` writes. A restore held to it changes nothing but the
 /// tables it creates, so dropping those tables undoes it completely: storages
 /// without transactions end up exactly where a rollback would leave them.
-fn writes_only_to_created_tables(statements: &[StatementPlan]) -> bool {
+fn writes_only_to_created_tables(statements: &[Statement]) -> bool {
     let mut created = Vec::new();
 
     statements.iter().all(|statement| match statement {
-        StatementPlan::CreateTable {
+        Statement::CreateTable {
             name,
             if_not_exists: false,
             ..
@@ -232,8 +231,9 @@ fn writes_only_to_created_tables(statements: &[StatementPlan]) -> bool {
 
             true
         }
-        StatementPlan::Insert { table_name, .. }
-        | StatementPlan::CreateIndex { table_name, .. } => created.contains(&table_name),
+        Statement::Insert { table_name, .. } | Statement::CreateIndex { table_name, .. } => {
+            created.contains(&table_name)
+        }
         _ => false,
     })
 }
@@ -245,15 +245,15 @@ pub fn restore_in_transaction<T: GStore + GStoreMut + Planner>(
     glue: &mut Glue<T>,
     sql: &str,
 ) -> Result<()> {
-    let statements = plan(glue, sql)?;
+    let statements = restore_statements(sql)?;
 
     // Fails when the caller already has a transaction open, and leaves that
     // transaction as it is.
     glue.storage.begin(false)?;
 
     let executed = statements
-        .iter()
-        .try_for_each(|statement| glue.execute_stmt(statement).map(|_| ()));
+        .into_iter()
+        .try_for_each(|statement| glue.execute_stmt(statement.into()).map(|_| ()));
 
     match executed {
         Ok(()) => Ok(glue.storage.commit()?),
@@ -272,9 +272,9 @@ pub fn restore_or_drop_created<T: GStore + GStoreMut + Planner>(
     glue: &mut Glue<T>,
     sql: &str,
 ) -> Result<()> {
-    let statements = plan(glue, sql)?;
+    let statements = restore_statements(sql)?;
     let mut created = Vec::new();
-    let executed = execute_recording_created(glue, &statements, &mut created);
+    let executed = execute_recording_created(glue, statements, &mut created);
 
     if executed.is_err() {
         // `delete_schema` skips the foreign key checks of `DROP TABLE`;
@@ -288,21 +288,21 @@ pub fn restore_or_drop_created<T: GStore + GStoreMut + Planner>(
 }
 
 #[cfg(not(all(target_arch = "wasm32", feature = "opfs")))]
-fn execute_recording_created<'a, T: GStore + GStoreMut + Planner>(
+fn execute_recording_created<T: GStore + GStoreMut + Planner>(
     glue: &mut Glue<T>,
-    statements: &'a [StatementPlan],
-    created: &mut Vec<&'a str>,
+    statements: Vec<Statement>,
+    created: &mut Vec<String>,
 ) -> Result<()> {
     for statement in statements {
         // `CREATE TABLE` fails for a name that is taken, and that table must
         // survive, so a name is recorded only while it is still free.
-        if let StatementPlan::CreateTable { name, .. } = statement
+        if let Statement::CreateTable { name, .. } = &statement
             && glue.storage.fetch_schema(name)?.is_none()
         {
-            created.push(name);
+            created.push(name.clone());
         }
 
-        glue.execute_stmt(statement)?;
+        glue.execute_stmt(statement.into())?;
     }
 
     Ok(())

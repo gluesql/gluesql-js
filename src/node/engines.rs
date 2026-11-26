@@ -5,7 +5,8 @@ use {
         error::{Error, Result},
         store::{
             AlterTable, CustomFunction, CustomFunctionMut, GStore, GStoreMut, Index, IndexMut,
-            MetaIter, Metadata, Planner, RowIter, Store, StoreMut, Transaction,
+            MetaIter, Metadata, NativeQuery, Planner, RowIter, ScanColumns, Store, StoreMut,
+            Transaction,
         },
     },
     gluesql_memory_storage::MemoryStorage,
@@ -192,8 +193,8 @@ impl Store for Engines {
         self.storage_of(table_name)?.fetch_data(table_name, key)
     }
 
-    fn scan_data<'a>(&'a self, table_name: &str) -> Result<RowIter<'a>> {
-        self.storage_of(table_name)?.scan_data(table_name)
+    fn scan_data<'a>(&'a self, table_name: &str, columns: ScanColumns<'_>) -> Result<RowIter<'a>> {
+        self.storage_of(table_name)?.scan_data(table_name, columns)
     }
 }
 
@@ -313,4 +314,5 @@ impl CustomFunctionMut for Engines {
 impl AlterTable for Engines {}
 impl Index for Engines {}
 impl IndexMut for Engines {}
+impl NativeQuery for Engines {}
 impl Planner for Engines {}
